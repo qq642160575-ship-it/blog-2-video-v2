@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -13,6 +14,11 @@ class ArticleParseService:
     """Service for parsing articles using LLM"""
 
     def __init__(self):
+        # Some environments export ALL_PROXY=socks://..., which openai/httpx
+        # rejects. Remove the unsupported value and keep HTTP(S)_PROXY.
+        if os.environ.get("ALL_PROXY", "").startswith("socks://"):
+            os.environ.pop("ALL_PROXY", None)
+
         self.llm = ChatOpenAI(
             model="deepseek-chat",
             temperature=0.3,

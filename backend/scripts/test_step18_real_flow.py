@@ -12,6 +12,10 @@ import sys
 import uuid
 from pathlib import Path
 
+for proxy_key in ("ALL_PROXY", "all_proxy"):
+    if os.environ.get(proxy_key, "").startswith("socks://"):
+        os.environ.pop(proxy_key, None)
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.core.config import get_settings
@@ -107,7 +111,7 @@ def fetch_job_status(job_id: str):
 
 def run_pipeline(job_id: str, project_id: str) -> None:
     worker = PipelineWorker()
-    worker.process_task(
+    return worker.process_task(
         {
             "job_id": job_id,
             "project_id": project_id,
@@ -201,9 +205,10 @@ def main() -> None:
     print("Job ID:", job_id)
 
     print_section("2. Run Pipeline Worker In Process")
-    run_pipeline(job_id, project_id)
+    pipeline_summary = run_pipeline(job_id, project_id)
     pipeline_status = fetch_job_status(job_id)
     print("Pipeline status:", pipeline_status)
+    print("Pipeline summary:", json.dumps(pipeline_summary, ensure_ascii=False, indent=2))
 
     print_section("3. Run Render Worker Once")
     run_render_worker(project_root)
@@ -226,10 +231,10 @@ def main() -> None:
             print("  -", path)
 
     print_section("Step 18 Result")
-    print("✓ Real article parsed")
-    print("✓ Scenes generated")
-    print("✓ Audio generated")
-    print("✓ Subtitles exported")
+    print(f"✓ Article parse: {pipeline_summary['article_parse_mode']}")
+    print(f"✓ Scene generate: {pipeline_summary['scene_generate_mode']}")
+    print(f"✓ TTS: {pipeline_summary['tts_mode']}")
+    print(f"✓ Subtitles: {pipeline_summary['subtitle_mode']}")
     print("✓ Video rendered")
     print("Output video:", outputs["video_path"])
 

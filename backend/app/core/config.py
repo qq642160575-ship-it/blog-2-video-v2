@@ -1,5 +1,16 @@
+import os
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+
+def _sanitize_proxy_env() -> None:
+    for key in ("ALL_PROXY", "all_proxy"):
+        value = os.environ.get(key, "")
+        if value.startswith("socks://"):
+            os.environ.pop(key, None)
+
+
+_sanitize_proxy_env()
 
 
 class Settings(BaseSettings):

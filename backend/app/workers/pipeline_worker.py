@@ -39,6 +39,13 @@ class PipelineWorker:
         job_id = task["job_id"]
         project_id = task["project_id"]
         job_type = task["job_type"]
+        execution_summary = {
+            "article_parse_mode": "unknown",
+            "scene_generate_mode": "unknown",
+            "tts_mode": "unknown",
+            "subtitle_mode": "unknown",
+            "manifest_path": None,
+        }
 
         print(f"\n{'='*60}")
         print(f"Processing Job: {job_id}")
@@ -76,18 +83,23 @@ class PipelineWorker:
                         "key_points": analysis_obj.key_points,
                         "tone": analysis_obj.tone,
                         "complexity": analysis_obj.complexity,
-                        "confidence": analysis_obj.confidence
+                        "estimated_video_duration": analysis_obj.estimated_video_duration,
+                        "confidence": analysis_obj.confidence,
+                        "reasoning": analysis_obj.reasoning,
                     }
+                    execution_summary["article_parse_mode"] = "real"
                     print(f"  ✓ Topic: {analysis['topic']} (Real LLM)")
                     print(f"  ✓ Confidence: {analysis['confidence']}")
                 else:
                     # Fallback to mock
                     analysis = generate_mock_article_analysis(project_id)
+                    execution_summary["article_parse_mode"] = "mock"
                     print(f"  ✓ Topic: {analysis['topic']} (Mock)")
                     print(f"  ✓ Confidence: {analysis['confidence']}")
             except Exception as e:
                 print(f"  ⚠ LLM failed, using mock: {e}")
                 analysis = generate_mock_article_analysis(project_id)
+                execution_summary["article_parse_mode"] = "mock_fallback"
                 print(f"  ✓ Topic: {analysis['topic']} (Mock fallback)")
                 print(f"  ✓ Confidence: {analysis['confidence']}")
 
@@ -123,16 +135,19 @@ class PipelineWorker:
                             "transition": scene.transition,
                             "visual_params": scene.visual_params
                         })
+                    execution_summary["scene_generate_mode"] = "real"
                     print(f"  ✓ Generated {len(scenes_data)} scenes (Real LLM)")
                     print(f"  ✓ Total duration: {scene_generation.total_duration}s")
                     print(f"  ✓ Confidence: {scene_generation.confidence}")
                 else:
                     # Fallback to mock
                     scenes_data = generate_mock_scenes(project_id)
+                    execution_summary["scene_generate_mode"] = "mock"
                     print(f"  ✓ Generated {len(scenes_data)} scenes (Mock)")
             except Exception as e:
                 print(f"  ⚠ LLM failed, using mock: {e}")
                 scenes_data = generate_mock_scenes(project_id)
+                execution_summary["scene_generate_mode"] = "mock_fallback"
                 print(f"  ✓ Generated {len(scenes_data)} scenes (Mock fallback)")
 
             # Stage 3: Scene Validate
@@ -176,9 +191,11 @@ class PipelineWorker:
                 # Always try TTS (Edge TTS is free and doesn't need API key)
                 tts_service = TTSService()
                 audio_paths = tts_service.synthesize_batch(scenes_data)
+                execution_summary["tts_mode"] = "real"
                 print(f"  ✓ Generated audio for {len(audio_paths)} scenes (Edge TTS)")
             except Exception as e:
                 print(f"  ⚠ TTS failed, using mock: {str(e)[:100]}")
+                execution_summary["tts_mode"] = "mock_fallback"
                 print(f"  ✓ Generated audio for {len(scenes_data)} scenes (Mock fallback)")
 
             # Stage 5: Subtitle Generate
@@ -193,6 +210,7 @@ class PipelineWorker:
 
                 subtitle_service = SubtitleService()
                 subtitles = subtitle_service.generate_batch(scenes_data)
+                execution_summary["subtitle_mode"] = "real"
                 print(f"  ✓ Generated subtitles for {len(subtitles)} scenes")
 
                 # Export to SRT files
@@ -201,6 +219,7 @@ class PipelineWorker:
                 print(f"  ✓ Exported SRT files")
             except Exception as e:
                 print(f"  ⚠ Subtitle generation failed: {str(e)[:100]}")
+                execution_summary["subtitle_mode"] = "failed"
                 print(f"  ✓ Continuing without subtitles")
 
             # Stage 6: Render Prepare
@@ -242,6 +261,7 @@ class PipelineWorker:
             os.makedirs(os.path.dirname(manifest_path), exist_ok=True)
             with open(manifest_path, 'w', encoding='utf-8') as f:
                 json.dump(manifest, f, ensure_ascii=False, indent=2)
+            execution_summary["manifest_path"] = manifest_path
 
             print(f"  ✓ Render manifest created")
 
@@ -267,6 +287,7 @@ class PipelineWorker:
             print(f"✓ Pipeline processing completed for job {job_id}!")
             print(f"  Render Worker will now generate the video...")
             print(f"{'='*60}\n")
+            return execution_summary
 
         except Exception as e:
             print(f"\n✗ Error processing job {job_id}: {e}")
@@ -276,6 +297,8 @@ class PipelineWorker:
                 error_code="PROCESSING_ERROR",
                 error_message=str(e)
             )
+            execution_summary["error"] = str(e)
+            return execution_summary
         finally:
             db.close()
 

@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Optional, Dict, Any
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -14,6 +15,9 @@ class SceneGenerateService:
     """Service for generating video scenes using LLM"""
 
     def __init__(self):
+        if os.environ.get("ALL_PROXY", "").startswith("socks://"):
+            os.environ.pop("ALL_PROXY", None)
+
         self.llm = ChatOpenAI(
             model="deepseek-chat",
             temperature=0.5,
