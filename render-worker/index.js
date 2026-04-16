@@ -68,67 +68,79 @@ class RenderWorker {
       console.log(`  ✓ Loaded manifest with ${manifest.scenes.length} scenes`);
       console.log();
 
-      // For now, render the first scene only (HookTitle)
-      const firstScene = manifest.scenes[0];
-      console.log('[2/3] Rendering scene...');
-      console.log(`  Scene: ${firstScene.scene_id}`);
-      console.log(`  Template: ${firstScene.template_type}`);
-
-      // Calculate duration from start_ms and end_ms
-      const durationMs = firstScene.end_ms - firstScene.start_ms;
-      const durationSec = durationMs / 1000;
-      console.log(`  Duration: ${durationSec}s`);
-      console.log();
-
-      // Prepare output path
+      // Render all scenes
+      console.log(`[2/4] Rendering ${manifest.scenes.length} scenes...`);
       const outputDir = path.join(STORAGE_DIR, 'videos', project_id);
       await fs.mkdir(outputDir, { recursive: true });
-      const outputPath = path.join(outputDir, `${project_id}.mp4`);
 
-      // Build props for Remotion
-      // screen_text can be either array ["title", "subtitle"] or object {title, subtitle}
-      const screenText = firstScene.template_props?.screen_text || firstScene.screen_text;
-      let title, subtitle;
+      const sceneVideos = [];
 
-      if (Array.isArray(screenText)) {
-        title = screenText[0] || 'Default Title';
-        subtitle = screenText[1] || 'Default Subtitle';
-      } else {
-        title = screenText?.title || 'Default Title';
-        subtitle = screenText?.subtitle || 'Default Subtitle';
+      for (let i = 0; i < manifest.scenes.length; i++) {
+        const scene = manifest.scenes[i];
+        console.log();
+        console.log(`  Scene ${i + 1}/${manifest.scenes.length}: ${scene.scene_id}`);
+        console.log(`  Template: ${scene.template_type}`);
+
+        // Calculate duration from start_ms and end_ms
+        const durationMs = scene.end_ms - scene.start_ms;
+        const durationSec = durationMs / 1000;
+        console.log(`  Duration: ${durationSec}s`);
+
+        // Build props for Remotion
+        const screenText = scene.template_props?.screen_text || scene.screen_text;
+        let title, subtitle;
+
+        if (Array.isArray(screenText)) {
+          title = screenText[0] || 'Default Title';
+          subtitle = screenText[1] || 'Default Subtitle';
+        } else {
+          title = screenText?.title || 'Default Title';
+          subtitle = screenText?.subtitle || 'Default Subtitle';
+        }
+
+        // Load audio path if available
+        let audioPath = null;
+        if (scene.audio_path) {
+          audioPath = path.join(STORAGE_DIR, scene.audio_path.replace(/^\.\/storage\//, ''));
+          console.log(`  Audio: ${audioPath}`);
+        }
+
+        // Load subtitles if available
+        let subtitles = null;
+        const subtitlePath = path.join(STORAGE_DIR, 'subtitles', `${scene.scene_id}.srt`);
+        try {
+          const srtContent = await fs.readFile(subtitlePath, 'utf-8');
+          subtitles = this.parseSRT(srtContent);
+          console.log(`  Subtitles: ${subtitles.length} segments`);
+        } catch (error) {
+          console.log(`  Subtitles: Not found (optional)`);
+        }
+
+        const props = { title, subtitle, audioPath, subtitles };
+
+        // Render scene to temporary file
+        const sceneOutputPath = path.join(outputDir, `scene_${i + 1}_${scene.scene_id}.mp4`);
+        const durationInFrames = Math.round(durationSec * 30); // 30 fps
+
+        await this.callRemotion(scene.template_type, sceneOutputPath, props, durationInFrames);
+        sceneVideos.push(sceneOutputPath);
+
+        console.log(`  ✓ Scene ${i + 1} rendered`);
       }
-
-      // Load audio path if available
-      let audioPath = null;
-      if (firstScene.audio_path) {
-        audioPath = path.join(STORAGE_DIR, firstScene.audio_path.replace(/^\.\/storage\//, ''));
-        console.log(`  Audio: ${audioPath}`);
-      }
-
-      // Load subtitles if available
-      let subtitles = null;
-      const subtitlePath = path.join(STORAGE_DIR, 'subtitles', `${firstScene.scene_id}.srt`);
-      try {
-        const srtContent = await fs.readFile(subtitlePath, 'utf-8');
-        subtitles = this.parseSRT(srtContent);
-        console.log(`  Subtitles: ${subtitles.length} segments`);
-      } catch (error) {
-        console.log(`  Subtitles: Not found (optional)`);
-      }
-
-      const props = { title, subtitle, audioPath, subtitles };
-
-      // Call Remotion CLI
-      const durationInFrames = Math.round(durationSec * 30); // 30 fps
-      await this.callRemotion('HookTitle', outputPath, props, durationInFrames);
 
       console.log();
-      console.log('[3/3] Render complete!');
-      console.log(`  ✓ Video saved: ${outputPath}`);
+      console.log(`[3/4] Concatenating ${sceneVideos.length} scenes...`);
+      const finalOutputPath = path.join(outputDir, `${project_id}.mp4`);
+      await this.concatenateVideos(sceneVideos, finalOutputPath);
+      console.log(`  ✓ Videos concatenated`);
+
+      console.log();
+      console.log('[4/4] Render complete!');
+      console.log(`  ✓ Video saved: ${finalOutputPath}`);
       console.log();
 
       // Update job status to completed
-      await this.updateJobStatus(job_id, 'completed', 'export', 1.0, outputPath);
+      await this.updateJobStatus(job_id, 'completed', 'export', 1.0, finalOutputPath);
 
       console.log('============================================================');
       console.log(`✓ Job ${job_id} completed successfully!`);
@@ -246,6 +258,46 @@ class RenderWorker {
     }
 
     return subtitles;
+  }
+
+  async concatenateVideos(videoPaths, outputPath) {
+    return new Promise((resolve, reject) => {
+      // Create a temporary file list for FFmpeg
+      const fileListPath = outputPath.replace('.mp4', '_filelist.txt');
+      const fileListContent = videoPaths.map(p => `file '${p}'`).join('\n');
+
+      fs.writeFile(fileListPath, fileListContent, 'utf-8')
+        .then(() => {
+          // Use FFmpeg to concatenate videos
+          const ffmpegProcess = spawn('ffmpeg', [
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', fileListPath,
+            '-c', 'copy',
+            outputPath,
+            '-y' // Overwrite output file
+          ]);
+
+          ffmpegProcess.on('close', (code) => {
+            // Clean up file list
+            fs.unlink(fileListPath).catch(() => {});
+
+            if (code === 0) {
+              // Clean up individual scene videos
+              Promise.all(videoPaths.map(p => fs.unlink(p).catch(() => {})))
+                .then(() => resolve())
+                .catch(() => resolve()); // Resolve anyway
+            } else {
+              reject(new Error(`FFmpeg process exited with code ${code}`));
+            }
+          });
+
+          ffmpegProcess.on('error', (err) => {
+            reject(err);
+          });
+        })
+        .catch(reject);
+    });
   }
 
   async run() {
