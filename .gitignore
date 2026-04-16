@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# FastAPI
+.env
+.env.*
+!.env.example
+!*.env.example
+*.db
+
+# Node
+node_modules/
+dist/
+.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Storage
+storage/
+assets/
+
+# Logs
+*.log
+
+# Project-specific
+backend/venv/
+backend/storage/
+frontend/node_modules/
+remotion/node_modules/
+remotion/out/
+render-worker/node_modules/

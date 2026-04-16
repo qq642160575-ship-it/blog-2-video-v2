@@ -1,0 +1,94 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from app.core.db import get_db
+from app.schemas.project import ProjectCreate, ProjectResponse, ArticleStats
+from app.services.project_service import ProjectService
+
+router = APIRouter(prefix="/projects", tags=["projects"])
+
+
+@router.post("", response_model=dict)
+def create_project(
+    project_data: ProjectCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Create a new project
+    """
+    try:
+        service = ProjectService(db)
+        project, stats = service.create_project(project_data)
+
+        return {
+            "project_id": project.id,
+            "status": project.status,
+            "article_stats": {
+                "char_count": stats.char_count,
+                "estimated_reading_sec": stats.estimated_reading_sec
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/{project_id}", response_model=ProjectResponse)
+def get_project(
+    project_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get project by ID
+    """
+    try:
+        service = ProjectService(db)
+        project = service.get_project(project_id)
+        return project
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/{project_id}/result")
+def get_project_result(
+    project_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get project result (video URL)
+    """
+    try:
+        service = ProjectService(db)
+        project = service.get_project(project_id)
+        
+        if not project.latest_job_id:
+            raise HTTPException(status_code=404, detail="No job found for this project")
+        
+        # Get latest job
+        from app.services.job_service import JobService
+        job_service = JobService(db)
+        job = job_service.get_job(project.latest_job_id)
+        
+        if job.status != "completed":
+            return {
+                "project_id": project_id,
+                "status": job.status,
+                "stage": job.stage,
+                "progress": float(job.progress) if job.progress else 0.0,
+                "video_url": None
+            }
+        
+        # Extract video URL from result fields
+        video_url = job.result_video_url
+
+        return {
+            "project_id": project_id,
+            "status": job.status,
+            "video_url": video_url
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
