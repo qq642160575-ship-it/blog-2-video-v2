@@ -14,6 +14,11 @@ const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000';
 const RENDER_QUEUE = 'render_queue';
 const REMOTION_DIR = path.join(__dirname, '../remotion');
 const STORAGE_DIR = path.join(__dirname, '../backend/storage');
+const COMPOSITION_MAP = {
+  hook_title: 'HookTitle',
+  bullet_explain: 'BulletExplain',
+  compare_process: 'CompareProcess',
+};
 
 class RenderWorker {
   constructor() {
@@ -87,21 +92,11 @@ class RenderWorker {
         console.log(`  Duration: ${durationSec}s`);
 
         // Build props for Remotion
-        const screenText = scene.template_props?.screen_text || scene.screen_text;
-        let title, subtitle;
-
-        if (Array.isArray(screenText)) {
-          title = screenText[0] || 'Default Title';
-          subtitle = screenText[1] || 'Default Subtitle';
-        } else {
-          title = screenText?.title || 'Default Title';
-          subtitle = screenText?.subtitle || 'Default Subtitle';
-        }
-
         // Load audio path if available
         let audioPath = null;
-        if (scene.audio_path) {
-          audioPath = path.join(STORAGE_DIR, scene.audio_path.replace(/^\.\/storage\//, ''));
+        const rawAudioPath = scene.audio_path || scene.audio_url;
+        if (rawAudioPath) {
+          audioPath = path.join(STORAGE_DIR, rawAudioPath.replace(/^\/storage\//, '').replace(/^\.\/storage\//, ''));
           console.log(`  Audio: ${audioPath}`);
         }
 
@@ -116,13 +111,18 @@ class RenderWorker {
           console.log(`  Subtitles: Not found (optional)`);
         }
 
-        const props = { title, subtitle, audioPath, subtitles };
+        const props = this.buildRemotionProps(scene, audioPath, subtitles);
 
         // Render scene to temporary file
         const sceneOutputPath = path.join(outputDir, `scene_${i + 1}_${scene.scene_id}.mp4`);
         const durationInFrames = Math.round(durationSec * 30); // 30 fps
 
-        await this.callRemotion(scene.template_type, sceneOutputPath, props, durationInFrames);
+        await this.callRemotion(
+          scene.composition_id || this.getCompositionId(scene.template_type),
+          sceneOutputPath,
+          props,
+          durationInFrames
+        );
         sceneVideos.push(sceneOutputPath);
 
         console.log(`  ✓ Scene ${i + 1} rendered`);
@@ -222,6 +222,53 @@ class RenderWorker {
         reject(err);
       });
     });
+  }
+
+  getCompositionId(templateType) {
+    return COMPOSITION_MAP[templateType] || 'HookTitle';
+  }
+
+  buildRemotionProps(scene, audioPath, subtitles) {
+    const templateType = scene.template_type;
+    const templateProps = scene.template_props || {};
+    const screenText = Array.isArray(scene.screen_text)
+      ? scene.screen_text
+      : Array.isArray(templateProps.screen_text)
+        ? templateProps.screen_text
+        : [];
+
+    if (templateType === 'bullet_explain') {
+      return {
+        title: templateProps.title || screenText[0] || '核心要点',
+        bullets: templateProps.bullets || screenText || ['待补充'],
+        accentColor: templateProps.accentColor || '#f97316',
+        audioPath,
+        subtitles,
+      };
+    }
+
+    if (templateType === 'compare_process') {
+      const leftPoints = templateProps.leftPoints || screenText.slice(0, 1);
+      const rightPoints = templateProps.rightPoints || screenText.slice(1);
+
+      return {
+        title: templateProps.title || '对比说明',
+        leftTitle: templateProps.leftTitle || '原方案',
+        rightTitle: templateProps.rightTitle || '优化方案',
+        leftPoints: leftPoints.length > 0 ? leftPoints : ['待补充'],
+        rightPoints: rightPoints.length > 0 ? rightPoints : ['待补充'],
+        footerText: templateProps.footerText || scene.voiceover,
+        audioPath,
+        subtitles,
+      };
+    }
+
+    return {
+      title: templateProps.title || screenText[0] || 'Default Title',
+      subtitle: templateProps.subtitle || screenText[1] || scene.voiceover || 'Default Subtitle',
+      audioPath,
+      subtitles,
+    };
   }
 
   parseSRT(srtContent) {
@@ -326,6 +373,23 @@ class RenderWorker {
     await this.disconnect();
   }
 
+  async runOnce(timeout = 1) {
+    await this.connect();
+
+    try {
+      const task = await this.popRenderTask(timeout);
+      if (!task) {
+        console.log('No render task available.');
+        return false;
+      }
+
+      await this.renderVideo(task);
+      return true;
+    } finally {
+      await this.disconnect();
+    }
+  }
+
   stop() {
     console.log('Stopping worker...');
     this.isRunning = false;
@@ -334,6 +398,7 @@ class RenderWorker {
 
 // Main
 const worker = new RenderWorker();
+const onceMode = process.argv.includes('--once');
 
 process.on('SIGINT', () => {
   console.log();
@@ -344,7 +409,9 @@ process.on('SIGTERM', () => {
   worker.stop();
 });
 
-worker.run().catch((error) => {
+const main = onceMode ? worker.runOnce() : worker.run();
+
+main.catch((error) => {
   console.error('Fatal error:', error);
   process.exit(1);
 });

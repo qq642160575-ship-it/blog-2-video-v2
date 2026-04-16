@@ -18,11 +18,11 @@ from app.core.config import get_settings
 from app.services.task_queue import TaskQueue
 from app.services.job_service import JobService
 from app.services.project_service import ProjectService
+from app.services.template_mapping_service import TemplateMappingService
 from app.models.scene import Scene
 from app.utils.mock_data import (
     generate_mock_article_analysis,
     generate_mock_scenes,
-    generate_mock_render_manifest
 )
 
 settings = get_settings()
@@ -31,6 +31,7 @@ settings = get_settings()
 class PipelineWorker:
     def __init__(self):
         self.task_queue = TaskQueue()
+        self.template_mapping = TemplateMappingService()
         self.running = True
 
     def process_task(self, task: dict):
@@ -63,7 +64,6 @@ class PipelineWorker:
             # Try real LLM first, fallback to mock if API key not configured
             try:
                 from app.services.article_parse_service import ArticleParseService
-                from app.core.config import settings
 
                 if settings.openai_api_key and settings.openai_api_key != "your-openai-api-key-here":
                     # Use real LLM
@@ -210,7 +210,32 @@ class PipelineWorker:
             )
             time.sleep(0.5)
 
-            manifest = generate_mock_render_manifest(project_id, scenes_data)
+            manifest_scenes = []
+            current_start_ms = 0
+            for scene_data in scenes_data:
+                duration_ms = scene_data["duration_sec"] * 1000
+                audio_url = None
+                if scene_data["scene_id"] in audio_paths:
+                    audio_url = audio_paths[scene_data["scene_id"]]
+
+                manifest_scenes.append(
+                    self.template_mapping.build_manifest_scene(
+                        scene=scene_data,
+                        start_ms=current_start_ms,
+                        end_ms=current_start_ms + duration_ms,
+                        audio_url=audio_url,
+                    )
+                )
+                current_start_ms += duration_ms
+
+            manifest = {
+                "project_id": project_id,
+                "resolution": "1080x1920",
+                "fps": 30,
+                "scenes": manifest_scenes,
+                "subtitles": [],
+                "total_duration_ms": current_start_ms,
+            }
 
             # Save manifest (in real version, this would go to object storage)
             manifest_path = f"{settings.storage_path}/manifests/{project_id}_manifest.json"
