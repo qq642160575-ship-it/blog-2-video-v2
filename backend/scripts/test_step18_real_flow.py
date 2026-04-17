@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Step 18 real end-to-end flow test.
 
@@ -15,6 +16,8 @@ from pathlib import Path
 for proxy_key in ("ALL_PROXY", "all_proxy"):
     if os.environ.get(proxy_key, "").startswith("socks://"):
         os.environ.pop(proxy_key, None)
+
+os.environ.setdefault("SKIP_TTS", "1")
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -198,6 +201,7 @@ def main() -> None:
 
     print("Storage path:", settings.storage_path)
     print("OpenAI base URL:", settings.openai_base_url)
+    print("Skip TTS:", os.environ.get("SKIP_TTS"))
 
     print_section("1. Create Project And Job")
     project_id, job_id = create_project_and_job()

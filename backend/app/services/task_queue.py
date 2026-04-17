@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from app.core.redis import get_redis
 
 # Queue names
@@ -20,7 +20,7 @@ class TaskQueue:
         }
         self.redis.lpush(GENERATION_QUEUE, json.dumps(task_data))
 
-    def pop_generation_task(self, timeout: int = 0) -> Dict[str, Any] | None:
+    def pop_generation_task(self, timeout: int = 0) -> Optional[Dict[str, Any]]:
         """Pop a generation task from the queue (blocking)"""
         result = self.redis.brpop(GENERATION_QUEUE, timeout=timeout)
         if result:
@@ -37,7 +37,7 @@ class TaskQueue:
         }
         self.redis.lpush(RENDER_QUEUE, json.dumps(task_data))
 
-    def pop_render_task(self, timeout: int = 0) -> Dict[str, Any] | None:
+    def pop_render_task(self, timeout: int = 0) -> Optional[Dict[str, Any]]:
         """Pop a render task from the queue (blocking)"""
         result = self.redis.brpop(RENDER_QUEUE, timeout=timeout)
         if result:

@@ -154,3 +154,42 @@ def update_job_status(
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/jobs/{job_id}/cancel")
+def cancel_job(
+    job_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Cancel a running or queued job
+    """
+    try:
+        job_service = JobService(db)
+        job = job_service.cancel_job(job_id)
+
+        return {
+            "job_id": job.id,
+            "status": job.status,
+            "message": "Job cancelled successfully"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/concurrency/stats")
+def get_concurrency_stats(
+    db: Session = Depends(get_db)
+):
+    """
+    Get concurrency statistics
+    """
+    try:
+        job_service = JobService(db)
+        stats = job_service.get_concurrency_stats()
+
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
