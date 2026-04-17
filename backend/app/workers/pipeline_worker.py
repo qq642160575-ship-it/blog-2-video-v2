@@ -1,3 +1,8 @@
+"""input: 依赖任务队列、生成 graph 和 job 服务。
+output: 向外提供常驻生成 worker 进程。
+pos: 位于 worker 层，负责消费生成任务。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 #!/usr/bin/env python3
 """
 Pipeline Worker - Consumes generation tasks and processes them
@@ -18,8 +23,10 @@ from app.core.config import get_settings
 from app.services.task_queue import TaskQueue
 from app.services.job_service import JobService
 from app.graph import build_generation_graph, GenerationState
+from app.core.logging_config import get_logger
 
 settings = get_settings()
+logger = get_logger("worker")
 
 
 class PipelineWorker:
@@ -34,11 +41,11 @@ class PipelineWorker:
         project_id = task["project_id"]
         job_type = task["job_type"]
 
-        print(f"\n{'='*60}")
-        print(f"Processing Job: {job_id}")
-        print(f"Project: {project_id}")
-        print(f"Type: {job_type}")
-        print(f"{'='*60}\n")
+        logger.info(f"{'='*60}")
+        logger.info(f"Processing Job: {job_id}")
+        logger.info(f"Project: {project_id}")
+        logger.info(f"Type: {job_type}")
+        logger.info(f"{'='*60}")
 
         # Initialize state
         initial_state: GenerationState = {
@@ -68,7 +75,7 @@ class PipelineWorker:
             final_state = self.graph.invoke(initial_state)
             return final_state["execution_summary"]
         except Exception as e:
-            print(f"\n✗ Error processing job {job_id}: {e}")
+            logger.error(f"Error processing job {job_id}: {e}", exc_info=True)
             db = SessionLocal()
             try:
                 job_service = JobService(db)
@@ -84,12 +91,12 @@ class PipelineWorker:
 
     def run(self):
         """Main worker loop"""
-        print("="*60)
-        print("Pipeline Worker Started")
-        print("="*60)
-        print(f"Listening on queue: generation_queue")
-        print(f"Press Ctrl+C to stop")
-        print("="*60)
+        logger.info("="*60)
+        logger.info("Pipeline Worker Started")
+        logger.info("="*60)
+        logger.info(f"Listening on queue: generation_queue")
+        logger.info(f"Press Ctrl+C to stop")
+        logger.info("="*60)
 
         while self.running:
             try:
@@ -103,7 +110,7 @@ class PipelineWorker:
                     pass
 
             except KeyboardInterrupt:
-                print("\n\nShutting down worker...")
+                logger.info("\n\nShutting down worker...")
                 self.running = False
             except Exception as e:
                 print(f"Worker error: {e}")

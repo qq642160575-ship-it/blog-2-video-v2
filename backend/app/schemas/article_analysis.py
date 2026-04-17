@@ -1,3 +1,8 @@
+"""input: 依赖 Pydantic 和文章分析字段约定。
+output: 向外提供 ArticleAnalysis 结构。
+pos: 位于 schema 层，约束文章解析结果。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 from pydantic import BaseModel, Field
 from typing import List, Optional
 

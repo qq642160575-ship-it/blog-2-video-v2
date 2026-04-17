@@ -1,3 +1,8 @@
+"""input: 依赖 FastAPI、数据库会话和 ProjectService。
+output: 向外提供项目创建、查询与结果接口。
+pos: 位于 API 层，负责项目入口接口。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.db import get_db

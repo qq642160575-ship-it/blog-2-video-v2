@@ -1,3 +1,8 @@
+"""input: 依赖计时或统计需求。
+output: 向外提供性能采集与辅助函数。
+pos: 位于工具层，负责性能观测辅助。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 """
 Performance Monitoring Utilities
 """

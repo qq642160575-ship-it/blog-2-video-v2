@@ -1,3 +1,8 @@
+"""input: 依赖音频或文本时间轴信息和文件系统。
+output: 向外提供字幕生成、转换和导出能力。
+pos: 位于 service 层，负责字幕处理。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 import os
 import re
 from typing import List, Optional

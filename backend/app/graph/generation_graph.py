@@ -1,3 +1,8 @@
+"""input: 依赖状态定义、服务层、模型层和队列。
+output: 向外提供视频生成流程状态图。
+pos: 位于流程编排层，是生成链路中枢。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 #!/usr/bin/env python3
 """
 Generation Graph - LangGraph state machine for video generation pipeline
@@ -97,7 +102,11 @@ def parse_article(state: GenerationState) -> GenerationState:
 
             if settings.openai_api_key and settings.openai_api_key != "your-openai-api-key-here":
                 parse_service = ArticleParseService()
-                analysis_obj = parse_service.parse_article_with_retry(state["project_content"])
+                analysis_obj = parse_service.parse_article_with_retry(
+                    state["project_content"],
+                    job_id=state["job_id"],
+                    project_id=state["project_id"]
+                )
                 analysis = {
                     "topic": analysis_obj.topic,
                     "audience": analysis_obj.audience,
@@ -186,7 +195,10 @@ def generate_scenes(state: GenerationState) -> GenerationState:
                 analysis_obj = ArticleAnalysis(**state["analysis"])
                 scene_service = SceneGenerateService()
                 scene_generation = scene_service.generate_scenes_with_retry(
-                    analysis_obj, state["project_content"]
+                    analysis_obj,
+                    state["project_content"],
+                    job_id=state["job_id"],
+                    project_id=state["project_id"]
                 )
 
                 scenes_data = []

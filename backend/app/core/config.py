@@ -1,3 +1,8 @@
+"""input: 依赖环境变量和 pydantic settings。
+output: 向外提供全局 Settings 和配置读取函数。
+pos: 位于基础设施层，负责统一配置。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 import os
 from pydantic_settings import BaseSettings
 from functools import lru_cache

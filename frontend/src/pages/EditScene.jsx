@@ -1,3 +1,10 @@
+/**
+ * input: 依赖 React 状态、分镜 API 和路由参数。
+ * output: 向外提供分镜编辑页面。
+ * pos: 位于前端页面层，负责单场景编辑。
+ * 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。
+ */
+
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'

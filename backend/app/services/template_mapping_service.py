@@ -1,3 +1,8 @@
+"""input: 依赖分镜数据和 Remotion 模板约定。
+output: 向外提供模板选择与参数映射能力。
+pos: 位于 service 层，负责模板绑定。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 from typing import Any, Dict, List
 
 

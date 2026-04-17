@@ -1,3 +1,10 @@
+/**
+ * input: 依赖 React 状态、路由跳转和项目创建 API。
+ * output: 向外提供项目创建页面。
+ * pos: 位于前端页面层，负责文章输入入口。
+ * 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。
+ */
+
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'

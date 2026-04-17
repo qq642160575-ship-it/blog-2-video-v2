@@ -1,3 +1,10 @@
+/**
+ * input: 依赖结果查询 API 和路由参数。
+ * output: 向外提供生成结果页面。
+ * pos: 位于前端页面层，负责结果展示。
+ * 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。
+ */
+
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'

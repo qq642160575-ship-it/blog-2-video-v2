@@ -1,3 +1,8 @@
+"""input: 依赖分镜模型、版本模型和数据库会话。
+output: 向外提供分镜读取、更新和版本化能力。
+pos: 位于 service 层，负责分镜业务。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 from sqlalchemy.orm import Session
 from app.models.scene import Scene
 from app.models.scene_version import SceneVersion

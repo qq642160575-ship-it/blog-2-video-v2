@@ -1,3 +1,8 @@
+"""input: 依赖素材模型、数据库和文件存储约定。
+output: 向外提供素材管理业务能力。
+pos: 位于 service 层，负责素材业务逻辑。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 """
 Asset Service - Manages asset lifecycle and storage
 """

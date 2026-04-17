@@ -1,3 +1,8 @@
+"""input: 依赖数据库、队列或锁相关能力。
+output: 向外提供任务并发控制能力。
+pos: 位于 service 层，负责并发治理。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 """
 Concurrency Manager - Manages concurrent job execution limits
 """

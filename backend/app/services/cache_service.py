@@ -1,3 +1,8 @@
+"""input: 依赖 Redis 和缓存键规则。
+output: 向外提供缓存读写、键构造和失效能力。
+pos: 位于 service 层，负责缓存抽象。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 """
 Cache Service - Redis-based caching layer for performance optimization
 """

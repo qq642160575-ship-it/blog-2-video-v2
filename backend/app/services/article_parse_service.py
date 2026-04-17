@@ -1,13 +1,22 @@
+"""input: 依赖 LLM、文章分析 schema 和 AI 日志服务。
+output: 向外提供文章解析与重试能力。
+pos: 位于 service 层，负责文章结构化分析。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 import json
 import os
+import time
 from typing import Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from app.schemas.article_analysis import ArticleAnalysis
 from app.core.config import get_settings
+from app.core.logging_config import get_logger
+from app.services.ai_logger_service import create_ai_logger
 
 settings = get_settings()
+logger = get_logger("app")
 
 
 class ArticleParseService:
@@ -50,12 +59,14 @@ class ArticleParseService:
             ("user", "请分析以下文章：\n\n{article_content}")
         ])
 
-    def parse_article(self, article_content: str) -> ArticleAnalysis:
+    def parse_article(self, article_content: str, job_id: str = None, project_id: str = None) -> ArticleAnalysis:
         """
         Parse article content and extract structured information
 
         Args:
             article_content: The article text to analyze
+            job_id: Optional job ID for logging
+            project_id: Optional project ID for logging
 
         Returns:
             ArticleAnalysis object with extracted information
@@ -63,24 +74,63 @@ class ArticleParseService:
         Raises:
             ValueError: If parsing fails or LLM returns invalid data
         """
+        start_time = time.time()
+
         try:
+            logger.info(f"Starting article parsing - Job: {job_id}, Project: {project_id}")
+            logger.debug(f"Article content length: {len(article_content)} chars")
+
             # Create chain
             chain = self.prompt | self.llm | self.parser
+            prompt_value = self.prompt.format_prompt(article_content=article_content)
+            prompt_text = prompt_value.to_string()
 
             # Invoke LLM
             result = chain.invoke({"article_content": article_content})
 
+            duration_ms = int((time.time() - start_time) * 1000)
+            logger.info(f"Article parsing completed in {duration_ms}ms")
+            logger.debug(f"Parsed result: {json.dumps(result, ensure_ascii=False)[:500]}...")
+
             # Validate and create ArticleAnalysis object
             analysis = ArticleAnalysis(**result)
+            create_ai_logger().log_ai_call(
+                operation="article_parsing",
+                model="deepseek-chat",
+                prompt=prompt_text,
+                response=json.dumps(result, ensure_ascii=False),
+                job_id=job_id,
+                project_id=project_id,
+                duration_ms=duration_ms,
+                status="success"
+            )
 
             return analysis
 
         except Exception as e:
+            duration_ms = int((time.time() - start_time) * 1000)
+            logger.error(f"Failed to parse article after {duration_ms}ms: {str(e)}")
+            try:
+                create_ai_logger().log_ai_call(
+                    operation="article_parsing",
+                    model="deepseek-chat",
+                    prompt=locals().get("prompt_text", article_content),
+                    response="",
+                    job_id=job_id,
+                    project_id=project_id,
+                    duration_ms=duration_ms,
+                    status="error",
+                    error_message=str(e)
+                )
+            except Exception:
+                logger.exception("Failed to write AI error log")
             raise ValueError(f"Failed to parse article: {str(e)}")
 
     def parse_article_with_retry(
         self,
         article_content: str,
+        job_id: str = None,
+        project_id: str = None,
         max_retries: int = 3
     ) -> ArticleAnalysis:
         """
@@ -100,7 +150,11 @@ class ArticleParseService:
 
         for attempt in range(max_retries):
             try:
-                return self.parse_article(article_content)
+                return self.parse_article(
+                    article_content,
+                    job_id=job_id,
+                    project_id=project_id
+                )
             except Exception as e:
                 last_error = e
                 if attempt < max_retries - 1:

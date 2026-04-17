@@ -1,3 +1,8 @@
+"""input: 依赖测试场景和流程兜底需求。
+output: 向外提供模拟文章分析和模拟分镜数据。
+pos: 位于工具层，负责无外部依赖时的兜底数据。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 """
 Mock data generators for testing
 """

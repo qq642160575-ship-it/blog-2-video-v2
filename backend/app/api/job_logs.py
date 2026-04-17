@@ -1,3 +1,8 @@
+"""input: 依赖 FastAPI、数据库会话和 JobLogService。
+output: 向外提供任务日志查询 HTTP 接口。
+pos: 位于 API 层，负责任务日志查询。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 """
 Job Logs API - Endpoints for retrieving job execution logs
 """

@@ -1,5 +1,11 @@
+"""input: 依赖 LLM、分镜 schema 和 AI 日志服务。
+output: 向外提供分镜生成与重试能力。
+pos: 位于 service 层，负责分镜脚本生成。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 import json
 import os
+import time
 from typing import Optional, Dict, Any
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -7,8 +13,11 @@ from langchain_core.output_parsers import JsonOutputParser
 from app.schemas.scene_generation import SceneGeneration
 from app.schemas.article_analysis import ArticleAnalysis
 from app.core.config import get_settings
+from app.core.logging_config import get_logger
+from app.services.ai_logger_service import create_ai_logger
 
 settings = get_settings()
+logger = get_logger("app")
 
 
 class SceneGenerateService:
@@ -81,7 +90,9 @@ class SceneGenerateService:
     def generate_scenes(
         self,
         article_analysis: ArticleAnalysis,
-        article_content: Optional[str] = None
+        article_content: Optional[str] = None,
+        job_id: str = None,
+        project_id: str = None
     ) -> SceneGeneration:
         """
         Generate video scenes based on article analysis
@@ -89,6 +100,8 @@ class SceneGenerateService:
         Args:
             article_analysis: Article analysis result
             article_content: Optional original article content for reference
+            job_id: Optional job ID for logging
+            project_id: Optional project ID for logging
 
         Returns:
             SceneGeneration object with scene list
@@ -96,7 +109,12 @@ class SceneGenerateService:
         Raises:
             ValueError: If generation fails or LLM returns invalid data
         """
+        start_time = time.time()
+
         try:
+            logger.info(f"Starting scene generation - Job: {job_id}, Project: {project_id}")
+            logger.debug(f"Article topic: {article_analysis.topic}")
+
             # Format key points
             key_points_text = "\n".join([
                 f"{i+1}. {point}"
@@ -105,6 +123,15 @@ class SceneGenerateService:
 
             # Create chain
             chain = self.prompt | self.llm | self.parser
+            prompt_value = self.prompt.format_prompt(
+                topic=article_analysis.topic,
+                audience=article_analysis.audience,
+                core_message=article_analysis.core_message,
+                key_points=key_points_text,
+                tone=article_analysis.tone,
+                complexity=article_analysis.complexity
+            )
+            prompt_text = prompt_value.to_string()
 
             # Invoke LLM
             result = chain.invoke({
@@ -116,18 +143,50 @@ class SceneGenerateService:
                 "complexity": article_analysis.complexity
             })
 
+            duration_ms = int((time.time() - start_time) * 1000)
+            logger.info(f"Scene generation completed in {duration_ms}ms")
+            logger.debug(f"Generated {len(result.get('scenes', []))} scenes")
+
             # Validate and create SceneGeneration object
             scene_generation = SceneGeneration(**result)
+            create_ai_logger().log_ai_call(
+                operation="scene_generation",
+                model="deepseek-chat",
+                prompt=prompt_text,
+                response=json.dumps(result, ensure_ascii=False),
+                job_id=job_id,
+                project_id=project_id,
+                duration_ms=duration_ms,
+                status="success"
+            )
 
             return scene_generation
 
         except Exception as e:
+            duration_ms = int((time.time() - start_time) * 1000)
+            logger.error(f"Failed to generate scenes after {duration_ms}ms: {str(e)}")
+            try:
+                create_ai_logger().log_ai_call(
+                    operation="scene_generation",
+                    model="deepseek-chat",
+                    prompt=locals().get("prompt_text", json.dumps(article_analysis.model_dump(), ensure_ascii=False)),
+                    response="",
+                    job_id=job_id,
+                    project_id=project_id,
+                    duration_ms=duration_ms,
+                    status="error",
+                    error_message=str(e)
+                )
+            except Exception:
+                logger.exception("Failed to write AI error log")
             raise ValueError(f"Failed to generate scenes: {str(e)}")
 
     def generate_scenes_with_retry(
         self,
         article_analysis: ArticleAnalysis,
         article_content: Optional[str] = None,
+        job_id: str = None,
+        project_id: str = None,
         max_retries: int = 3
     ) -> SceneGeneration:
         """
@@ -148,7 +207,12 @@ class SceneGenerateService:
 
         for attempt in range(max_retries):
             try:
-                return self.generate_scenes(article_analysis, article_content)
+                return self.generate_scenes(
+                    article_analysis,
+                    article_content,
+                    job_id=job_id,
+                    project_id=project_id
+                )
             except Exception as e:
                 last_error = e
                 if attempt < max_retries - 1:

@@ -1,3 +1,8 @@
+"""input: 依赖任务模型、项目模型、队列与缓存能力。
+output: 向外提供任务创建、状态推进和结果更新能力。
+pos: 位于 service 层，负责任务生命周期编排。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 import uuid
 from datetime import datetime
 from sqlalchemy.orm import Session

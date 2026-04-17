@@ -1,3 +1,10 @@
+/**
+ * input: 依赖 Redis、Remotion、FFmpeg、manifest 文件和后端 API。
+ * output: 向外提供渲染 worker 进程。
+ * pos: 位于渲染执行层，负责最终视频导出。
+ * 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。
+ */
+
 import { createClient } from 'redis';
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';

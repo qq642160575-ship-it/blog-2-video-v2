@@ -1,3 +1,8 @@
+"""input: 依赖 Pydantic 和分镜生成字段约定。
+output: 向外提供 SceneGeneration 与场景结构。
+pos: 位于 schema 层，约束分镜生成结果。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 from pydantic import BaseModel, Field
 from typing import List, Optional
 

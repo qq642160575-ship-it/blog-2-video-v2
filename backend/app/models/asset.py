@@ -1,3 +1,8 @@
+"""input: 依赖 SQLAlchemy Base 和素材字段设计。
+output: 向外提供 Asset 数据模型。
+pos: 位于模型层，负责持久化素材记录。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 """
 Asset model - Tracks all generated files (audio, subtitle, video)
 """

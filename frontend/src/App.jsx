@@ -1,3 +1,10 @@
+/**
+ * input: 依赖 React Router 和页面组件。
+ * output: 向外提供前端整体布局与路由树。
+ * pos: 位于前端壳层，负责组织页面导航。
+ * 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。
+ */
+
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import CreateProject from './pages/CreateProject'

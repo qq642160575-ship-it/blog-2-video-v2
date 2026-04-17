@@ -1,3 +1,8 @@
+"""input: 依赖 Redis 和队列键规则。
+output: 向外提供生成队列与渲染队列操作能力。
+pos: 位于 service 层，负责异步任务排队。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 import json
 from typing import Dict, Any, Optional
 from app.core.redis import get_redis

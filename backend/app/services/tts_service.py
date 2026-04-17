@@ -1,3 +1,8 @@
+"""input: 依赖 TTS 供应商配置、文件系统和字幕链路。
+output: 向外提供旁白转音频能力。
+pos: 位于 service 层，负责语音生成。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 import os
 import uuid
 import asyncio

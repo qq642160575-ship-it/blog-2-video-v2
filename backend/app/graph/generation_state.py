@@ -1,3 +1,8 @@
+"""input: 依赖 typing 状态结构约定。
+output: 向外提供 LangGraph 共享状态定义。
+pos: 位于流程编排层，约束节点间共享数据。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 #!/usr/bin/env python3
 """
 Generation State - State definition for LangGraph state machine

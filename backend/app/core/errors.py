@@ -1,3 +1,8 @@
+"""input: 依赖系统错误码定义需求。
+output: 向外提供错误码枚举和错误文案映射。
+pos: 位于基础设施层，负责统一错误语义。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 """
 Error Codes - Standardized error codes for the system
 """

@@ -1,3 +1,8 @@
+"""input: 依赖 FastAPI、数据库会话和 asset 相关服务。
+output: 向外提供素材相关 HTTP 接口。
+pos: 位于 API 层，负责素材接口编排。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.core.db import get_db

@@ -1,3 +1,10 @@
+/**
+ * input: 依赖 Remotion 组件参数和字幕/音频 props。
+ * output: 向外提供 CompareProcess 视频模板。
+ * pos: 位于模板层，负责对比说明场景。
+ * 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。
+ */
+
 import React from 'react';
 import {
   AbsoluteFill,

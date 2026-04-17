@@ -1,3 +1,10 @@
+/**
+ * input: 依赖 Remotion 和各 composition 组件。
+ * output: 向外提供视频 composition 注册入口。
+ * pos: 位于模板入口层，负责登记模板。
+ * 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。
+ */
+
 import React from 'react';
 import {Composition, registerRoot} from 'remotion';
 import {HookTitle} from './compositions/HookTitle';

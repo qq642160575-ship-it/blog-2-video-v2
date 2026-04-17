@@ -1,3 +1,8 @@
+"""input: 依赖项目仓储、缓存服务和项目 schema。
+output: 向外提供项目创建与查询能力。
+pos: 位于 service 层，负责项目核心业务。
+声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
+
 import uuid
 from sqlalchemy.orm import Session
 from app.models.project import Project
