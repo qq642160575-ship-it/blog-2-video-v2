@@ -1,5 +1,5 @@
 """input: 依赖 typing 状态结构约定。
-output: 向外提供 LangGraph 共享状态定义。
+output: 向外提供 LangGraph 共享状态定义（含 v3 Hook 和验证字段）。
 pos: 位于流程编排层，约束节点间共享数据。
 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
 
@@ -24,8 +24,17 @@ class GenerationState(TypedDict):
     # Article analysis
     analysis: Optional[Dict[str, Any]]
 
+    # v3: Hook generation
+    hook_result: Optional[Dict[str, Any]]    # HookResult serialized
+    selected_hook: Optional[Dict[str, Any]]  # Selected Hook serialized
+
     # Scene data
     scenes_data: Optional[List[Dict[str, Any]]]
+
+    # v3: Enhanced validation
+    validation_result: Optional[Dict[str, Any]]  # ValidationResult serialized
+    validation_passed: Optional[bool]
+    retry_count: Optional[int]  # 重试次数
 
     # Audio paths
     audio_paths: Optional[Dict[str, str]]

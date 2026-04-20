@@ -1,4 +1,4 @@
-"""input: 依赖 Pydantic 和分镜生成字段约定。
+"""input: 依赖 Pydantic 和分镜生成字段约定（含 v3 叙事质量字段）。
 output: 向外提供 SceneGeneration 与场景结构。
 pos: 位于 schema 层，约束分镜生成结果。
 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
@@ -45,6 +45,21 @@ class SceneData(BaseModel):
     visual_params: Optional[dict] = Field(
         default=None,
         description="视觉参数，如强调文字、对比类型等"
+    )
+
+    # v3: 叙事质量字段
+    scene_role: str = Field(
+        default="body",
+        description="场景角色：hook | body | close"
+    )
+    narrative_stage: str = Field(
+        default="build",
+        description="叙事阶段：opening | build | payoff | close"
+    )
+    emotion_level: int = Field(
+        default=3,
+        ge=1, le=5,
+        description="情绪强度：1（低）-5（高）"
     )
 
 

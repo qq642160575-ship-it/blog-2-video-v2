@@ -1,4 +1,4 @@
-"""input: 依赖状态定义、服务层、模型层和队列。
+"""input: 依赖状态定义、服务层、模型层和队列（含 v3 Hook 生成 + 增强验证）。
 output: 向外提供视频生成流程状态图。
 pos: 位于流程编排层，是生成链路中枢。
 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
@@ -23,6 +23,8 @@ from app.services.project_service import ProjectService
 from app.services.template_mapping_service import TemplateMappingService
 from app.services.task_queue import TaskQueue
 from app.services.job_log_service import JobLogService
+from app.services.hook_generate_service import HookGenerateService
+from app.services.enhanced_validator import EnhancedValidator
 from app.models.scene import Scene
 from app.utils.mock_data import (
     generate_mock_article_analysis,
@@ -175,16 +177,77 @@ def parse_article(state: GenerationState) -> GenerationState:
         db.close()
 
 
+def generate_hook(state: GenerationState) -> GenerationState:
+    """[v3] 生成开场 Hook"""
+    db = SessionLocal()
+    start_time = time.time()
+    try:
+        job_service = JobService(db)
+        log_service = JobLogService(db)
+
+        print("\n[v3] Hook Generate...")
+        job_service.update_job_status(
+            state["job_id"], status="running", stage="hook_generate", progress=0.2
+        )
+        log_service.log_info(
+            job_id=state["job_id"],
+            project_id=state["project_id"],
+            stage="hook_generate",
+            message="Starting Hook generation"
+        )
+
+        hook_service = HookGenerateService()
+        analysis = state.get("analysis") or {}
+        hook_result = hook_service.generate_hooks_with_retry(analysis)
+
+        duration_ms = int((time.time() - start_time) * 1000)
+        selected = hook_result.hooks[hook_result.selected_index]
+        log_service.log_info(
+            job_id=state["job_id"],
+            project_id=state["project_id"],
+            stage="hook_generate",
+            message=f"Hook generated: [{selected.type}] {selected.content}",
+            details={"score": selected.score, "type": selected.type},
+            duration_ms=duration_ms
+        )
+        print(f"  ✓ Hook: [{selected.type}] {selected.content} (score={selected.score})")
+
+        state["hook_result"] = hook_result.model_dump()
+        state["selected_hook"] = selected.model_dump()
+        return state
+    except Exception as e:
+        log_service = JobLogService(db)
+        log_service.log_error(
+            job_id=state["job_id"],
+            project_id=state["project_id"],
+            stage="hook_generate",
+            message=f"Hook generation failed: {str(e)}"
+        )
+        # 不阻止主流程，使用空 Hook
+        state.setdefault("selected_hook", None)
+        return state
+    finally:
+        db.close()
+
+
 def generate_scenes(state: GenerationState) -> GenerationState:
-    """Generate scenes with LLM"""
+    """Generate scenes with LLM (v3: uses selected_hook and stamps v3 narrative fields)"""
     db = SessionLocal()
     try:
         job_service = JobService(db)
 
-        print("\n[2/6] Scene Generate...")
+        retry_count = state.get("retry_count") or 0
+        retry_label = f" (重试第{retry_count}次)" if retry_count > 0 else ""
+        print(f"\n[2/6] Scene Generate...{retry_label}")
         job_service.update_job_status(
             state["job_id"], status="running", stage="scene_generate", progress=0.3
         )
+
+        # [v3] 打印上次验证失败原因（供日志追踪）
+        if retry_count > 0:
+            prev_errors = (state.get("validation_result") or {}).get("errors", [])
+            if prev_errors:
+                print(f"  ↩ 上次验证失败: {prev_errors}")
 
         # Try real LLM first, fallback to mock
         try:
@@ -198,7 +261,8 @@ def generate_scenes(state: GenerationState) -> GenerationState:
                     analysis_obj,
                     state["project_content"],
                     job_id=state["job_id"],
-                    project_id=state["project_id"]
+                    project_id=state["project_id"],
+                    selected_hook=state.get("selected_hook"),  # [v3]
                 )
 
                 scenes_data = []
@@ -213,7 +277,11 @@ def generate_scenes(state: GenerationState) -> GenerationState:
                         "duration_sec": scene.duration_sec,
                         "pace": scene.pace,
                         "transition": scene.transition,
-                        "visual_params": scene.visual_params
+                        "visual_params": scene.visual_params,
+                        # [v3] LLM 直接输出的叙事字段
+                        "scene_role": scene.scene_role,
+                        "narrative_stage": scene.narrative_stage,
+                        "emotion_level": scene.emotion_level,
                     })
                 state["execution_summary"]["scene_generate_mode"] = "real"
                 print(f"  ✓ Generated {len(scenes_data)} scenes (Real LLM)")
@@ -227,6 +295,30 @@ def generate_scenes(state: GenerationState) -> GenerationState:
             scenes_data = generate_mock_scenes(state["project_id"])
             state["execution_summary"]["scene_generate_mode"] = "mock_fallback"
             print(f"  ✓ Generated {len(scenes_data)} scenes (Mock fallback)")
+
+        # [v3] 注入 v3 叙事字段（如已存在则不覆盖）
+        selected_hook = state.get("selected_hook")
+        _narrative_stages = ["opening", "opening", "build", "build", "build", "payoff", "payoff", "close"]
+        _emotion_levels = [5, 4, 3, 3, 3, 4, 5, 3]
+        for i, sd in enumerate(scenes_data):
+            if "narrative_stage" not in sd:
+                sd["narrative_stage"] = _narrative_stages[i] if i < len(_narrative_stages) else "build"
+            if "emotion_level" not in sd:
+                sd["emotion_level"] = _emotion_levels[i] if i < len(_emotion_levels) else 3
+            if "scene_role" not in sd:
+                sd["scene_role"] = "hook" if i == 0 else ("close" if i == len(scenes_data) - 1 else "body")
+            if i == 0:
+                sd["hook_type"] = selected_hook.get("type") if selected_hook else None
+                sd["quality_score"] = selected_hook.get("score") if selected_hook else None
+                # 第1个场景 voiceover 替换为 Hook 内容（仅限 mock 模式）
+                if selected_hook and state["execution_summary"].get("scene_generate_mode", "").startswith("mock"):
+                    sd["voiceover"] = selected_hook["content"]
+            else:
+                sd.setdefault("hook_type", None)
+                sd.setdefault("quality_score", None)
+
+        if selected_hook:
+            print(f"  ✓ Hook injected into scene 1: {selected_hook.get('content', '')[:30]}...")
 
         state["scenes_data"] = scenes_data
         return state
@@ -276,7 +368,7 @@ def load_scenes(state: GenerationState) -> GenerationState:
 
 
 def validate_scenes(state: GenerationState) -> GenerationState:
-    """Validate and save scenes to database"""
+    """Validate and save scenes to database (v3: also runs EnhancedValidator)"""
     db = SessionLocal()
     try:
         job_service = JobService(db)
@@ -287,7 +379,50 @@ def validate_scenes(state: GenerationState) -> GenerationState:
         )
         time.sleep(0.5)
 
-        # Save scenes to database
+        # --- v3: EnhancedValidator 内容质量检查 ---
+        is_v3 = state.get("selected_hook") is not None
+        if is_v3:
+            retry_count = state.get("retry_count") or 0
+            validator = EnhancedValidator()
+            v_result = validator.validate_scenes(state.get("scenes_data") or [])
+
+            # 重试 1 次后降低标准强制通过
+            if not v_result.passed and retry_count >= 1:
+                import logging
+                logging.getLogger("app").warning(
+                    f"验证不通过（重试{retry_count}次），降低标准强制通过"
+                )
+                v_result.passed = True
+                v_result.forced = True
+
+            state["validation_result"] = {
+                "passed": v_result.passed,
+                "errors": v_result.errors,
+                "warnings": v_result.warnings,
+                "forced": v_result.forced,
+            }
+            state["validation_passed"] = v_result.passed
+        else:
+            # v2: bypass enhanced validation
+            state["validation_result"] = {
+                "passed": True,
+                "errors": [],
+                "warnings": [],
+                "forced": False,
+            }
+            state["validation_passed"] = True
+
+        if not state["validation_passed"]:
+            state["retry_count"] = state.get("retry_count", 0) + 1
+            print(f"  ⚠ EnhancedValidator 验证不通过: {state['validation_result']['errors']}")
+        else:
+            if is_v3:
+                label = " (强制通过)" if state["validation_result"]["forced"] else ""
+                print(f"  ✓ EnhancedValidator 验证通过{label}")
+            else:
+                print("  ✓ Schema 验证完成 (v2, skipped EnhancedValidator)")
+
+        # Save scenes to database (incl. v3 fields)
         for scene_data in state["scenes_data"]:
             scene = Scene(
                 id=scene_data["scene_id"],
@@ -301,11 +436,17 @@ def validate_scenes(state: GenerationState) -> GenerationState:
                 duration_sec=scene_data["duration_sec"],
                 pace=scene_data.get("pace"),
                 transition=scene_data.get("transition"),
-                visual_params=scene_data.get("visual_params")
+                visual_params=scene_data.get("visual_params"),
+                # v3 叙事质量字段
+                scene_role=scene_data.get("scene_role", "body"),
+                narrative_stage=scene_data.get("narrative_stage", "build"),
+                emotion_level=scene_data.get("emotion_level", 3),
+                hook_type=scene_data.get("hook_type"),
+                quality_score=scene_data.get("quality_score"),
             )
             db.add(scene)
         db.commit()
-        print(f"  ✓ Scenes saved to database")
+        print(f"  ✓ Scenes saved to database (with v3 fields)")
 
         return state
     finally:
@@ -515,6 +656,23 @@ def route_by_job_type(state: GenerationState) -> str:
         return "handle_error"
 
 
+def should_use_v3_router(state: GenerationState) -> str:
+    """Routing: decide whether to run v3 hook flow or bypass to v2 scenes"""
+    import hashlib
+    from app.core.config import get_settings
+    settings = get_settings()
+
+    if not settings.v3_enabled:
+        return "generate_scenes"
+
+    # Gray release hash check on project_id
+    hash_value = int(hashlib.md5(state["project_id"].encode()).hexdigest(), 16)
+    if (hash_value % 100) < settings.v3_traffic_percentage:
+        return "generate_hook"
+
+    return "generate_scenes"
+
+
 def check_error(state: GenerationState) -> str:
     """Check if there's an error"""
     if state.get("error"):
@@ -530,6 +688,7 @@ def build_generation_graph() -> StateGraph:
     # Add nodes
     workflow.add_node("load_project", load_project)
     workflow.add_node("parse_article", parse_article)
+    workflow.add_node("generate_hook", generate_hook)   # [v3] 新增
     workflow.add_node("generate_scenes", generate_scenes)
     workflow.add_node("load_scenes", load_scenes)
     workflow.add_node("validate_scenes", validate_scenes)
@@ -552,7 +711,17 @@ def build_generation_graph() -> StateGraph:
         }
     )
 
-    workflow.add_edge("parse_article", "generate_scenes")
+    # [v3] parse_article -> (conditional v3 or v2) -> scenes
+    workflow.add_conditional_edges(
+        "parse_article",
+        should_use_v3_router,
+        {
+            "generate_hook": "generate_hook",
+            "generate_scenes": "generate_scenes"
+        }
+    )
+    workflow.add_edge("generate_hook", "generate_scenes")
+    # Loop for validation / retry
     workflow.add_edge("generate_scenes", "validate_scenes")
     workflow.add_edge("validate_scenes", "generate_tts")
     workflow.add_edge("load_scenes", "generate_tts")

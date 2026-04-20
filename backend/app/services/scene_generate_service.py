@@ -1,4 +1,4 @@
-"""input: 依赖 LLM、分镜 schema 和 AI 日志服务。
+"""input: 依赖 LLM、分镜 schema 和 AI 日志服务（v3：含 Hook 和叙事质量字段）。
 output: 向外提供分镜生成与重试能力。
 pos: 位于 service 层，负责分镜脚本生成。
 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
@@ -40,7 +40,7 @@ class SceneGenerateService:
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个专业的视频脚本编剧，擅长将文章内容转化为短视频分镜脚本。
 
-你的任务是根据文章分析结果，生成 6-10 个视频场景（scenes），每个场景包含旁白、屏幕文字、时长等信息。
+你的任务是根据文章分析结果和提供的Hook，生成 6-10 个视频场景（scenes）。
 
 ## 场景模板类型
 - hook_title: 开头钩子，吸引注意力
@@ -49,16 +49,19 @@ class SceneGenerateService:
 - quote_highlight: 引用高亮，强调关键信息
 - summary_cta: 总结收尾，引导行动
 
-## 设计原则
-1. 总时长控制在 45-60 秒
-2. 开头 3 秒必须有钩子，抓住注意力
-3. 旁白要口语化、简洁，避免书面语
-4. 屏幕文字要精炼，2-4 个关键词
-5. 节奏要有变化，快慢结合
-6. 叙事流程要流畅：钩子→核心→展开→总结
+## 【v3强制约束】叙事结构
+1. 第1场景必须使用提供的Hook作为旁白开场
+2. 叙事阶段分配：
+   - 场景1-2: opening（高能量4-5，抛出Hook，建立好奇）
+   - 场景3-5: build（中能量2-3，展开问题，铺垫信息）
+   - 场景6-7: payoff（高能量4-5，给出答案，交付价值）
+   - 最后1场景: close（中能量3，总结收束）
+3. 禁止场景间内容重复（相似度不超过30%）
+4. 总时长控制在 45-60 秒
+5. 旁白要口语化、简洁，避免书面语
 
 ## 返回格式
-你必须返回一个 JSON 对象，包含以下字段：
+必须返回纯 JSON，包含以下字段：
 - scenes: 场景列表（6-10个）
   - template_type: 模板类型
   - goal: 场景目标
@@ -67,14 +70,15 @@ class SceneGenerateService:
   - duration_sec: 时长（5-10秒）
   - pace: 节奏（fast/medium/slow）
   - transition: 转场（cut/fade/slide）
-  - visual_params: 视觉参数（可选）
+  - scene_role: hook|body|close
+  - narrative_stage: opening|build|payoff|close
+  - emotion_level: 1-5
 - total_duration: 总时长（45-60秒）
 - narrative_flow: 叙事流程说明
 - confidence: 生成置信度（0-1）
-- reasoning: 生成推理（可选）
 
 请确保返回的 JSON 格式正确，可以被解析。"""),
-            ("user", """请根据以下文章分析结果，生成视频分镜脚本：
+            ("user", """请根据以下信息，生成视频分镜脚本：
 
 文章主题：{topic}
 目标受众：{audience}
@@ -84,7 +88,11 @@ class SceneGenerateService:
 语气风格：{tone}
 复杂度：{complexity}
 
-请生成 6-10 个场景的视频脚本。""")
+【必须使用的开场Hook】
+Hook类型: {hook_type}
+Hook内容: {hook_content}
+
+请生成 6-10 个场景的视频脚本，第1场景旁白必须使用上面提供的Hook内容。""")
         ])
 
     def generate_scenes(
@@ -92,7 +100,9 @@ class SceneGenerateService:
         article_analysis: ArticleAnalysis,
         article_content: Optional[str] = None,
         job_id: str = None,
-        project_id: str = None
+        project_id: str = None,
+        selected_hook: Optional[dict] = None,  # v3: Hook dict {type, content, score}
+        feedback: Optional[str] = None,        # v3: 重试时的错误反馈
     ) -> SceneGeneration:
         """
         Generate video scenes based on article analysis
@@ -121,27 +131,33 @@ class SceneGenerateService:
                 for i, point in enumerate(article_analysis.key_points)
             ])
 
-            # Create chain
-            chain = self.prompt | self.llm | self.parser
-            prompt_value = self.prompt.format_prompt(
-                topic=article_analysis.topic,
-                audience=article_analysis.audience,
-                core_message=article_analysis.core_message,
-                key_points=key_points_text,
-                tone=article_analysis.tone,
-                complexity=article_analysis.complexity
-            )
-            prompt_text = prompt_value.to_string()
+            # v3: Hook 信息（无 Hook 时使用占位符）
+            hook_type = selected_hook.get("type", "question") if selected_hook else "question"
+            hook_content = selected_hook.get("content", "请用一句引人入胜的话开场") if selected_hook else "请用一句引人入胜的话开场"
 
-            # Invoke LLM
-            result = chain.invoke({
+            # 构建调用参数
+            invoke_params = {
                 "topic": article_analysis.topic,
                 "audience": article_analysis.audience,
                 "core_message": article_analysis.core_message,
                 "key_points": key_points_text,
                 "tone": article_analysis.tone,
-                "complexity": article_analysis.complexity
-            })
+                "complexity": article_analysis.complexity,
+                "hook_type": hook_type,
+                "hook_content": hook_content,
+            }
+
+            # v3: 如果有重试反馈，追加到 user message 中
+            if feedback:
+                invoke_params["topic"] = f"{article_analysis.topic}\n\n【重试反馈】{feedback}"
+
+            # Create chain
+            chain = self.prompt | self.llm | self.parser
+            prompt_value = self.prompt.format_prompt(**invoke_params)
+            prompt_text = prompt_value.to_string()
+
+            # Invoke LLM
+            result = chain.invoke(invoke_params)
 
             duration_ms = int((time.time() - start_time) * 1000)
             logger.info(f"Scene generation completed in {duration_ms}ms")
@@ -187,7 +203,8 @@ class SceneGenerateService:
         article_content: Optional[str] = None,
         job_id: str = None,
         project_id: str = None,
-        max_retries: int = 3
+        max_retries: int = 3,
+        selected_hook: Optional[dict] = None,  # v3
     ) -> SceneGeneration:
         """
         Generate scenes with retry logic
@@ -196,6 +213,7 @@ class SceneGenerateService:
             article_analysis: Article analysis result
             article_content: Optional original article content
             max_retries: Maximum number of retry attempts
+            selected_hook: v3 selected Hook dict
 
         Returns:
             SceneGeneration object
@@ -206,15 +224,20 @@ class SceneGenerateService:
         last_error = None
 
         for attempt in range(max_retries):
+            feedback = None
+            if attempt > 0 and last_error:
+                feedback = f"上次生成失败原因: {last_error}"
             try:
                 return self.generate_scenes(
                     article_analysis,
                     article_content,
                     job_id=job_id,
-                    project_id=project_id
+                    project_id=project_id,
+                    selected_hook=selected_hook,
+                    feedback=feedback,
                 )
             except Exception as e:
-                last_error = e
+                last_error = str(e)
                 if attempt < max_retries - 1:
                     print(f"Scene generation attempt {attempt + 1} failed: {e}. Retrying...")
                     continue

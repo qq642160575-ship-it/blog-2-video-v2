@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     # Storage
     storage_path: str = "./storage"
 
+    # v3 功能开关
+    v3_enabled: bool = False
+    v3_traffic_percentage: int = 0
+
     class Config:
         env_file = ".env"
         case_sensitive = False
