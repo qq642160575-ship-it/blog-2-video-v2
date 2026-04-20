@@ -11,8 +11,10 @@ import redis
 from typing import Optional, Any, Callable
 from functools import wraps
 from app.core.config import get_settings
+from app.core.logging_config import get_logger
 
 settings = get_settings()
+logger = get_logger("app")
 
 
 class CacheService:
@@ -53,10 +55,12 @@ class CacheService:
         try:
             value = self.redis_client.get(key)
             if value:
+                logger.debug(f"Cache hit: {key}")
                 return json.loads(value)
+            logger.debug(f"Cache miss: {key}")
             return None
         except Exception as e:
-            print(f"Cache get error: {e}")
+            logger.error(f"Cache get error for key {key}: {e}")
             return None
 
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
@@ -65,18 +69,20 @@ class CacheService:
             ttl = ttl or self.DEFAULT_TTL
             serialized = json.dumps(value)
             self.redis_client.setex(key, ttl, serialized)
+            logger.debug(f"Cache set: {key} (ttl: {ttl}s)")
             return True
         except Exception as e:
-            print(f"Cache set error: {e}")
+            logger.error(f"Cache set error for key {key}: {e}")
             return False
 
     def delete(self, key: str) -> bool:
         """Delete key from cache"""
         try:
             self.redis_client.delete(key)
+            logger.debug(f"Cache delete: {key}")
             return True
         except Exception as e:
-            print(f"Cache delete error: {e}")
+            logger.error(f"Cache delete error for key {key}: {e}")
             return False
 
     def delete_pattern(self, pattern: str) -> int:
@@ -84,10 +90,12 @@ class CacheService:
         try:
             keys = self.redis_client.keys(pattern)
             if keys:
-                return self.redis_client.delete(*keys)
+                count = self.redis_client.delete(*keys)
+                logger.info(f"Cache delete pattern: {pattern} ({count} keys deleted)")
+                return count
             return 0
         except Exception as e:
-            print(f"Cache delete pattern error: {e}")
+            logger.error(f"Cache delete pattern error for {pattern}: {e}")
             return 0
 
     def exists(self, key: str) -> bool:
@@ -95,7 +103,7 @@ class CacheService:
         try:
             return self.redis_client.exists(key) > 0
         except Exception as e:
-            print(f"Cache exists error: {e}")
+            logger.error(f"Cache exists error for key {key}: {e}")
             return False
 
     def get_ttl(self, key: str) -> int:
@@ -103,24 +111,27 @@ class CacheService:
         try:
             return self.redis_client.ttl(key)
         except Exception as e:
-            print(f"Cache get_ttl error: {e}")
+            logger.error(f"Cache get_ttl error for key {key}: {e}")
             return -1
 
     def increment(self, key: str, amount: int = 1) -> int:
         """Increment counter"""
         try:
-            return self.redis_client.incrby(key, amount)
+            result = self.redis_client.incrby(key, amount)
+            logger.debug(f"Cache increment: {key} by {amount} = {result}")
+            return result
         except Exception as e:
-            print(f"Cache increment error: {e}")
+            logger.error(f"Cache increment error for key {key}: {e}")
             return 0
 
     def clear_all(self) -> bool:
         """Clear all cache (use with caution!)"""
         try:
             self.redis_client.flushdb()
+            logger.warning("Cache cleared all keys in database")
             return True
         except Exception as e:
-            print(f"Cache clear_all error: {e}")
+            logger.error(f"Cache clear_all error: {e}")
             return False
 
 

@@ -7,12 +7,12 @@ import os
 import re
 import json
 import time
-import logging
 from typing import Optional, List
 
 from app.schemas.hook import Hook, HookResult
+from app.core.logging_config import get_logger
 
-logger = logging.getLogger("app")
+logger = get_logger("app")
 
 
 class HookGenerateService:

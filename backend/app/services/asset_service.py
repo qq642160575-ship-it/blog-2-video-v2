@@ -15,6 +15,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.asset import Asset
 from app.services.cache_service import CacheService, CacheKeys, CacheInvalidator
+from app.core.logging_config import get_logger
+
+logger = get_logger("app")
 
 
 class AssetService:
@@ -143,8 +146,9 @@ class AssetService:
         if delete_file and asset.file_path and os.path.exists(asset.file_path):
             try:
                 os.remove(asset.file_path)
+                logger.info(f"Deleted asset file: {asset.file_path}")
             except Exception as e:
-                print(f"Failed to delete file {asset.file_path}: {e}")
+                logger.error(f"Failed to delete file {asset.file_path}: {e}")
 
         # Delete database record
         self.db.delete(asset)
@@ -162,12 +166,14 @@ class AssetService:
                 try:
                     os.remove(asset.file_path)
                     count += 1
+                    logger.info(f"Deleted asset file: {asset.file_path}")
                 except Exception as e:
-                    print(f"Failed to delete file {asset.file_path}: {e}")
+                    logger.error(f"Failed to delete file {asset.file_path}: {e}")
 
             self.db.delete(asset)
 
         self.db.commit()
+        logger.info(f"Cleaned up {count} assets for job {job_id}")
         return count
 
     def cleanup_project_assets(self, project_id: str, delete_files: bool = False) -> int:
@@ -180,12 +186,14 @@ class AssetService:
                 try:
                     os.remove(asset.file_path)
                     count += 1
+                    logger.info(f"Deleted asset file: {asset.file_path}")
                 except Exception as e:
-                    print(f"Failed to delete file {asset.file_path}: {e}")
+                    logger.error(f"Failed to delete file {asset.file_path}: {e}")
 
             self.db.delete(asset)
 
         self.db.commit()
+        logger.info(f"Cleaned up {count} assets for project {project_id}")
         return count
 
     def get_storage_stats(self) -> dict:

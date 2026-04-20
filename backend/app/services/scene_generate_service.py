@@ -9,7 +9,6 @@ import time
 from typing import Optional, Dict, Any
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
 from app.schemas.scene_generation import SceneGeneration
 from app.schemas.article_analysis import ArticleAnalysis
 from app.core.config import get_settings
@@ -33,9 +32,7 @@ class SceneGenerateService:
             openai_api_key=settings.openai_api_key,
             openai_api_base=settings.openai_base_url,
             request_timeout=60
-        )
-
-        self.parser = JsonOutputParser()
+        ).with_structured_output(schema=SceneGeneration)
 
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个专业的视频脚本编剧，擅长将文章内容转化为短视频分镜脚本。
@@ -152,7 +149,7 @@ Hook内容: {hook_content}
                 invoke_params["topic"] = f"{article_analysis.topic}\n\n【重试反馈】{feedback}"
 
             # Create chain
-            chain = self.prompt | self.llm | self.parser
+            chain = self.prompt | self.llm
             prompt_value = self.prompt.format_prompt(**invoke_params)
             prompt_text = prompt_value.to_string()
 
@@ -161,22 +158,21 @@ Hook内容: {hook_content}
 
             duration_ms = int((time.time() - start_time) * 1000)
             logger.info(f"Scene generation completed in {duration_ms}ms")
-            logger.debug(f"Generated {len(result.get('scenes', []))} scenes")
+            logger.debug(f"Generated {len(result.scenes)} scenes")
 
-            # Validate and create SceneGeneration object
-            scene_generation = SceneGeneration(**result)
+            # result is already a SceneGeneration object
             create_ai_logger().log_ai_call(
                 operation="scene_generation",
                 model="deepseek-chat",
                 prompt=prompt_text,
-                response=json.dumps(result, ensure_ascii=False),
+                response=result.model_dump_json(),
                 job_id=job_id,
                 project_id=project_id,
                 duration_ms=duration_ms,
                 status="success"
             )
 
-            return scene_generation
+            return result
 
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)

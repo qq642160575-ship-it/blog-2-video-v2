@@ -4,12 +4,12 @@ pos: 位于 service 层，负责生成质量门禁。
 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
 
 import re
-import logging
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from typing import List, Dict, Any
+from app.core.logging_config import get_logger
 
-logger = logging.getLogger("app")
+logger = get_logger("app")
 
 
 @dataclass
@@ -40,31 +40,46 @@ class EnhancedValidator:
         Returns:
             ValidationResult
         """
+        logger.info(f"Starting scene validation for {len(scenes_data)} scenes")
         errors = []
         warnings = []
 
         if not scenes_data:
+            logger.error("Scene validation failed: empty scene list")
             return ValidationResult(passed=False, errors=["场景列表为空"])
 
         # 检查1: Hook 验证（第1场景）
         if not self._validate_hook(scenes_data[0]):
-            errors.append("第1个场景缺少有效Hook（需要含疑问/数字/关键词）")
+            error_msg = "第1个场景缺少有效Hook（需要含疑问/数字/关键词）"
+            errors.append(error_msg)
+            logger.warning(f"Hook validation failed: {error_msg}")
 
         # 检查2: 重复度检查
         duplicate_pairs = self._check_duplicate(scenes_data)
         if duplicate_pairs:
-            errors.append(f"场景间内容重复（场景对: {duplicate_pairs}）")
+            error_msg = f"场景间内容重复（场景对: {duplicate_pairs}）"
+            errors.append(error_msg)
+            logger.warning(f"Duplicate check failed: {error_msg}")
 
         # 检查3: 结构完整性
         missing_stages = self._check_structure(scenes_data)
         if missing_stages:
-            errors.append(f"缺少必要的叙事阶段: {missing_stages}")
+            error_msg = f"缺少必要的叙事阶段: {missing_stages}"
+            errors.append(error_msg)
+            logger.warning(f"Structure check failed: {error_msg}")
 
         # 检查4: 节奏检查
         if not self._check_rhythm(scenes_data):
-            warnings.append("情绪曲线过于平淡，建议增加高能量场景")
+            warning_msg = "情绪曲线过于平淡，建议增加高能量场景"
+            warnings.append(warning_msg)
+            logger.info(f"Rhythm check warning: {warning_msg}")
 
         passed = len(errors) == 0
+        if passed:
+            logger.info(f"Scene validation passed with {len(warnings)} warnings")
+        else:
+            logger.error(f"Scene validation failed with {len(errors)} errors and {len(warnings)} warnings")
+
         return ValidationResult(passed=passed, errors=errors, warnings=warnings)
 
     def _validate_hook(self, scene_data: Dict[str, Any]) -> bool:

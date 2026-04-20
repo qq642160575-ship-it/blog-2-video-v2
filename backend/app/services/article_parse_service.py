@@ -9,7 +9,6 @@ import time
 from typing import Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
 from app.schemas.article_analysis import ArticleAnalysis
 from app.core.config import get_settings
 from app.core.logging_config import get_logger
@@ -33,9 +32,7 @@ class ArticleParseService:
             temperature=0.3,
             openai_api_key=settings.openai_api_key,
             openai_api_base=settings.openai_base_url
-        )
-
-        self.parser = JsonOutputParser()
+        ).with_structured_output(schema=ArticleAnalysis)
 
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个专业的内容分析师，擅长分析技术文章并提取关键信息。
@@ -81,7 +78,7 @@ class ArticleParseService:
             logger.debug(f"Article content length: {len(article_content)} chars")
 
             # Create chain
-            chain = self.prompt | self.llm | self.parser
+            chain = self.prompt | self.llm
             prompt_value = self.prompt.format_prompt(article_content=article_content)
             prompt_text = prompt_value.to_string()
 
@@ -90,22 +87,21 @@ class ArticleParseService:
 
             duration_ms = int((time.time() - start_time) * 1000)
             logger.info(f"Article parsing completed in {duration_ms}ms")
-            logger.debug(f"Parsed result: {json.dumps(result, ensure_ascii=False)[:500]}...")
+            logger.debug(f"Parsed result: {result.model_dump_json()[:500]}...")
 
-            # Validate and create ArticleAnalysis object
-            analysis = ArticleAnalysis(**result)
+            # result is already an ArticleAnalysis object
             create_ai_logger().log_ai_call(
                 operation="article_parsing",
                 model="deepseek-chat",
                 prompt=prompt_text,
-                response=json.dumps(result, ensure_ascii=False),
+                response=result.model_dump_json(),
                 job_id=job_id,
                 project_id=project_id,
                 duration_ms=duration_ms,
                 status="success"
             )
 
-            return analysis
+            return result
 
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)

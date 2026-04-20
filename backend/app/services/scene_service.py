@@ -6,7 +6,10 @@ pos: 位于 service 层，负责分镜业务。
 from sqlalchemy.orm import Session
 from app.models.scene import Scene
 from app.models.scene_version import SceneVersion
+from app.core.logging_config import get_logger
 from typing import Dict, List, Optional
+
+logger = get_logger("app")
 
 
 class SceneService:
@@ -15,12 +18,16 @@ class SceneService:
 
     def get_project_scenes(self, project_id: str) -> List[Scene]:
         """Get all scenes for a project"""
-        return self.db.query(Scene).filter(
+        logger.debug(f"Getting scenes for project {project_id}")
+        scenes = self.db.query(Scene).filter(
             Scene.project_id == project_id
         ).order_by(Scene.scene_order).all()
+        logger.info(f"Found {len(scenes)} scenes for project {project_id}")
+        return scenes
 
     def get_scene(self, scene_id: str) -> Optional[Scene]:
         """Get a single scene by ID"""
+        logger.debug(f"Getting scene {scene_id}")
         return self.db.query(Scene).filter(Scene.id == scene_id).first()
 
     def validate_scene_update(self, updates: Dict) -> List[str]:
@@ -51,17 +58,22 @@ class SceneService:
             if duration < 4 or duration > 9:
                 errors.append(f"Duration out of range: {duration}s (must be 4-9)")
 
+        if errors:
+            logger.warning(f"Scene validation errors: {errors}")
         return errors
 
     def update_scene(self, scene_id: str, updates: Dict) -> Scene:
         """Update a scene and create a version history entry"""
+        logger.info(f"Updating scene {scene_id} with {len(updates)} changes")
         scene = self.get_scene(scene_id)
         if not scene:
+            logger.error(f"Scene {scene_id} not found")
             raise ValueError(f"Scene {scene_id} not found")
 
         # Validate updates
         errors = self.validate_scene_update(updates)
         if errors:
+            logger.error(f"Scene update validation failed: {errors}")
             raise ValueError(f"Validation errors: {', '.join(errors)}")
 
         # Save current version to history
@@ -79,6 +91,7 @@ class SceneService:
             visual_params=scene.visual_params
         )
         self.db.add(version)
+        logger.debug(f"Created version {scene.current_version} for scene {scene_id}")
 
         # Update scene
         for key, value in updates.items():
@@ -90,11 +103,15 @@ class SceneService:
 
         self.db.commit()
         self.db.refresh(scene)
+        logger.info(f"Scene {scene_id} updated to version {scene.current_version}")
 
         return scene
 
     def get_scene_versions(self, scene_id: str) -> List[SceneVersion]:
         """Get version history for a scene"""
-        return self.db.query(SceneVersion).filter(
+        logger.debug(f"Getting version history for scene {scene_id}")
+        versions = self.db.query(SceneVersion).filter(
             SceneVersion.scene_id == scene_id
         ).order_by(SceneVersion.version.desc()).all()
+        logger.info(f"Found {len(versions)} versions for scene {scene_id}")
+        return versions

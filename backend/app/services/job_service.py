@@ -11,7 +11,10 @@ from app.services.task_queue import TaskQueue
 from app.services.concurrency_manager import ConcurrencyManager
 from app.services.cache_service import CacheService, CacheKeys, CacheInvalidator
 from app.core.errors import ErrorCode
+from app.core.logging_config import get_logger
 from typing import Optional
+
+logger = get_logger("worker")
 
 
 class JobService:
@@ -24,10 +27,12 @@ class JobService:
 
     def create_generation_job(self, project_id: str, job_type: str = "generate") -> GenerationJob:
         """Create a new generation job and push to queue"""
+        logger.info(f"Creating generation job for project {project_id}, type: {job_type}")
 
         # Check if project already has a running job
         if self.concurrency_manager.is_project_locked(project_id):
             existing_job_id = self.concurrency_manager.get_project_lock_owner(project_id)
+            logger.warning(f"Project {project_id} already has running job: {existing_job_id}")
             raise ValueError(
                 f"Project {project_id} already has a running job: {existing_job_id}. "
                 f"Error code: {ErrorCode.JOB_ALREADY_RUNNING}"
@@ -35,9 +40,11 @@ class JobService:
 
         # Generate job ID
         job_id = f"job_{uuid.uuid4().hex[:8]}"
+        logger.debug(f"Generated job ID: {job_id}")
 
         # Acquire project lock
         if not self.concurrency_manager.acquire_project_lock(project_id, job_id):
+            logger.error(f"Failed to acquire lock for project {project_id}")
             raise ValueError(
                 f"Failed to acquire lock for project {project_id}. "
                 f"Error code: {ErrorCode.JOB_ALREADY_RUNNING}"
@@ -57,12 +64,15 @@ class JobService:
             self.db.add(job)
             self.db.commit()
             self.db.refresh(job)
+            logger.info(f"Job {job_id} created and committed to database")
 
             # Push to queue
             self.task_queue.push_generation_task(job_id, project_id, job_type)
+            logger.info(f"Job {job_id} pushed to task queue")
 
             return job
         except Exception as e:
+            logger.error(f"Failed to create job for project {project_id}: {str(e)}")
             # Release lock if job creation failed
             self.concurrency_manager.release_project_lock(project_id, job_id)
             raise e
@@ -82,11 +92,14 @@ class JobService:
 
     def cancel_job(self, job_id: str) -> GenerationJob:
         """Cancel a running or queued job"""
+        logger.info(f"Cancelling job {job_id}")
         job = self.get_job(job_id)
         if not job:
+            logger.error(f"Job {job_id} not found")
             raise ValueError(f"Job {job_id} not found")
 
         if job.status in ["completed", "failed", "cancelled"]:
+            logger.warning(f"Job {job_id} is already {job.status}, cannot cancel")
             raise ValueError(f"Job {job_id} is already {job.status}")
 
         # Update job status
@@ -96,12 +109,14 @@ class JobService:
 
         self.db.commit()
         self.db.refresh(job)
+        logger.info(f"Job {job_id} cancelled successfully")
 
         # Invalidate cache
         self.cache_invalidator.invalidate_job(job_id, job.project_id)
 
         # Release project lock
         self.concurrency_manager.release_project_lock(job.project_id, job_id)
+        logger.debug(f"Released project lock for {job.project_id}")
 
         # Release render slot if it was acquired
         self.concurrency_manager.release_render_slot(job_id)
@@ -118,8 +133,10 @@ class JobService:
         error_message: Optional[str] = None
     ) -> GenerationJob:
         """Update job status"""
+        logger.info(f"Updating job {job_id} status to {status}, stage: {stage}, progress: {progress}")
         job = self.get_job(job_id)
         if not job:
+            logger.error(f"Job {job_id} not found")
             raise ValueError(f"Job {job_id} not found")
 
         job.status = status
@@ -129,13 +146,16 @@ class JobService:
             job.progress = progress
         if error_code is not None:
             job.error_code = error_code
+            logger.error(f"Job {job_id} error: {error_code} - {error_message}")
         if error_message is not None:
             job.error_message = error_message
 
         if status == "running" and not job.started_at:
             job.started_at = datetime.utcnow()
+            logger.info(f"Job {job_id} started at {job.started_at}")
         elif status in ["completed", "failed", "cancelled"]:
             job.finished_at = datetime.utcnow()
+            logger.info(f"Job {job_id} finished with status {status} at {job.finished_at}")
             # Release project lock when job finishes
             self.concurrency_manager.release_project_lock(job.project_id, job_id)
             # Release render slot if it was acquired
@@ -164,8 +184,10 @@ class JobService:
         scene_json_url: Optional[str] = None
     ) -> GenerationJob:
         """Update job result URLs"""
+        logger.info(f"Updating job {job_id} results - video: {video_url}, subtitle: {subtitle_url}, scene_json: {scene_json_url}")
         job = self.get_job(job_id)
         if not job:
+            logger.error(f"Job {job_id} not found")
             raise ValueError(f"Job {job_id} not found")
 
         if video_url:
@@ -177,14 +199,17 @@ class JobService:
 
         self.db.commit()
         self.db.refresh(job)
+        logger.debug(f"Job {job_id} results updated successfully")
         return job
 
     def get_concurrency_stats(self) -> dict:
         """Get concurrency statistics"""
-        return {
+        stats = {
             "max_concurrent_renders": self.concurrency_manager.max_concurrent_renders,
             "current_concurrent_renders": self.concurrency_manager.get_concurrent_render_count(),
             "running_render_jobs": self.concurrency_manager.get_running_renders(),
             "available_slots": self.concurrency_manager.max_concurrent_renders -
                              self.concurrency_manager.get_concurrent_render_count()
         }
+        logger.debug(f"Concurrency stats: {stats}")
+        return stats

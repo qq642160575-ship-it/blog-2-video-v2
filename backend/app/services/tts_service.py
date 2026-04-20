@@ -9,8 +9,10 @@ import asyncio
 from typing import Optional
 import edge_tts
 from app.core.config import get_settings
+from app.core.logging_config import get_logger
 
 settings = get_settings()
+logger = get_logger("app")
 
 
 class TTSService:
@@ -66,6 +68,7 @@ class TTSService:
             ValueError: If synthesis fails
         """
         try:
+            logger.info(f"Synthesizing speech: {len(text)} chars, voice: {voice_name}, rate: {speaking_rate}")
             # Generate output filename if not provided
             if not output_filename:
                 output_filename = f"audio_{uuid.uuid4().hex[:12]}.mp3"
@@ -85,9 +88,11 @@ class TTSService:
                 speaking_rate=rate_str
             ))
 
+            logger.info(f"Speech synthesized successfully: {output_path}")
             return output_path
 
         except Exception as e:
+            logger.error(f"Failed to synthesize speech: {str(e)}")
             raise ValueError(f"Failed to synthesize speech: {str(e)}")
 
     def synthesize_scene_audio(
@@ -107,6 +112,7 @@ class TTSService:
         Returns:
             Path to generated audio file
         """
+        logger.debug(f"Synthesizing audio for scene {scene_id}, pace: {pace}")
         # Map pace to speaking rate
         pace_map = {
             "fast": 1.2,
@@ -139,6 +145,7 @@ class TTSService:
         Returns:
             Dict mapping scene_id to audio file path
         """
+        logger.info(f"Starting batch synthesis for {len(scenes)} scenes")
         results = {}
         errors = []
 
@@ -155,9 +162,13 @@ class TTSService:
                 )
                 results[scene_id] = audio_path
             except Exception as e:
-                errors.append(f"Scene {scene_id}: {str(e)}")
+                error_msg = f"Scene {scene_id}: {str(e)}"
+                errors.append(error_msg)
+                logger.error(f"Failed to synthesize scene {scene_id}: {e}")
 
         if errors:
+            logger.error(f"Batch synthesis completed with {len(errors)} errors")
             raise ValueError(f"Failed to synthesize some scenes: {'; '.join(errors)}")
 
+        logger.info(f"Batch synthesis completed successfully for {len(results)} scenes")
         return results

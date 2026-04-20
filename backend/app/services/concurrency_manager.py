@@ -9,8 +9,10 @@ Concurrency Manager - Manages concurrent job execution limits
 import redis
 from typing import Optional
 from app.core.config import get_settings
+from app.core.logging_config import get_logger
 
 settings = get_settings()
+logger = get_logger("worker")
 
 
 class ConcurrencyManager:
@@ -43,24 +45,30 @@ class ConcurrencyManager:
         self.max_concurrent_renders = 3
         self.render_lock_key = "concurrent_renders"
         self.project_lock_prefix = "project_lock:"
+        logger.info(f"ConcurrencyManager initialized - max_concurrent_renders: {self.max_concurrent_renders}, redis: {host}:{port}")
 
     def can_start_render(self) -> bool:
         """Check if a new render job can start"""
         current_count = self.get_concurrent_render_count()
-        return current_count < self.max_concurrent_renders
+        can_start = current_count < self.max_concurrent_renders
+        logger.debug(f"Can start render check: {can_start} (current: {current_count}/{self.max_concurrent_renders})")
+        return can_start
 
     def acquire_render_slot(self, job_id: str) -> bool:
         """Acquire a render slot for a job"""
         if not self.can_start_render():
+            logger.warning(f"Cannot acquire render slot for job {job_id} - max concurrent renders reached")
             return False
 
         # Add job to the set of running renders
         self.redis_client.sadd(self.render_lock_key, job_id)
+        logger.info(f"Render slot acquired for job {job_id}")
         return True
 
     def release_render_slot(self, job_id: str):
         """Release a render slot"""
         self.redis_client.srem(self.render_lock_key, job_id)
+        logger.info(f"Render slot released for job {job_id}")
 
     def get_concurrent_render_count(self) -> int:
         """Get the current number of concurrent renders"""
@@ -86,6 +94,10 @@ class ConcurrencyManager:
 
         # Try to set the lock with NX (only if not exists)
         acquired = self.redis_client.set(lock_key, job_id, nx=True, ex=ttl)
+        if acquired:
+            logger.info(f"Project lock acquired for project {project_id} by job {job_id}")
+        else:
+            logger.warning(f"Failed to acquire project lock for {project_id} - already locked")
         return bool(acquired)
 
     def release_project_lock(self, project_id: str, job_id: str) -> bool:
@@ -105,25 +117,33 @@ class ConcurrencyManager:
         current_owner = self.redis_client.get(lock_key)
         if current_owner == job_id:
             self.redis_client.delete(lock_key)
+            logger.info(f"Project lock released for project {project_id} by job {job_id}")
             return True
+        logger.warning(f"Cannot release project lock for {project_id} - not owned by job {job_id} (owner: {current_owner})")
         return False
 
     def get_project_lock_owner(self, project_id: str) -> Optional[str]:
         """Get the job ID that owns the project lock"""
         lock_key = f"{self.project_lock_prefix}{project_id}"
-        return self.redis_client.get(lock_key)
+        owner = self.redis_client.get(lock_key)
+        logger.debug(f"Project {project_id} lock owner: {owner}")
+        return owner
 
     def is_project_locked(self, project_id: str) -> bool:
         """Check if a project is currently locked"""
         lock_key = f"{self.project_lock_prefix}{project_id}"
-        return self.redis_client.exists(lock_key) > 0
+        locked = self.redis_client.exists(lock_key) > 0
+        logger.debug(f"Project {project_id} locked: {locked}")
+        return locked
 
     def force_release_project_lock(self, project_id: str):
         """Force release a project lock (admin operation)"""
         lock_key = f"{self.project_lock_prefix}{project_id}"
         self.redis_client.delete(lock_key)
+        logger.warning(f"Force released project lock for {project_id}")
 
     def cleanup_stale_locks(self):
         """Clean up any stale locks (called periodically)"""
         # Redis TTL handles this automatically, but we can add additional cleanup logic here
+        logger.debug("Cleanup stale locks called (handled by Redis TTL)")
         pass

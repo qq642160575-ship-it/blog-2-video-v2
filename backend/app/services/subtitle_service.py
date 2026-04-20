@@ -8,8 +8,10 @@ import re
 from typing import List, Optional
 from app.schemas.subtitle import SubtitleSegment, SceneSubtitles
 from app.core.config import get_settings
+from app.core.logging_config import get_logger
 
 settings = get_settings()
+logger = get_logger("app")
 
 
 class SubtitleService:
@@ -172,7 +174,7 @@ class SubtitleService:
                 )
                 results[scene_id] = subtitles
             except Exception as e:
-                print(f"Warning: Failed to generate subtitles for {scene_id}: {e}")
+                logger.warning(f"Failed to generate subtitles for {scene_id}: {e}")
 
         return results
 

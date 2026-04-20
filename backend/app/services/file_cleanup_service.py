@@ -14,6 +14,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.asset import Asset
 from app.models.generation_job import GenerationJob
+from app.core.logging_config import get_logger
+
+logger = get_logger("app")
 
 
 class FileCleanupService:
@@ -39,8 +42,9 @@ class FileCleanupService:
                     os.remove(asset.file_path)
                     deleted_count += 1
                     deleted_size += file_size
+                    logger.info(f"Deleted failed job file: {asset.file_path}")
                 except Exception as e:
-                    print(f"Failed to delete file {asset.file_path}: {e}")
+                    logger.error(f"Failed to delete file {asset.file_path}: {e}")
 
             # Mark asset as deleted
             asset.is_deleted = True
@@ -114,9 +118,9 @@ class FileCleanupService:
                     os.remove(file_path)
                     deleted_count += 1
                     deleted_size += file_size
-                    print(f"Deleted orphaned file: {file_path}")
+                    logger.info(f"Deleted orphaned file: {file_path}")
                 except Exception as e:
-                    print(f"Failed to delete orphaned file {file_path}: {e}")
+                    logger.error(f"Failed to delete orphaned file {file_path}: {e}")
 
         return {
             "deleted_count": deleted_count,
