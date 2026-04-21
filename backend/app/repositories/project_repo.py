@@ -21,6 +21,14 @@ class ProjectRepository:
     def get_by_id(self, project_id: str) -> Optional[Project]:
         return self.db.query(Project).filter(Project.id == project_id).first()
 
+    def get_all(self, skip: int = 0, limit: int = 100) -> list[Project]:
+        """Get all projects with pagination, ordered by creation time (newest first)"""
+        return self.db.query(Project)\
+            .order_by(Project.created_at.desc())\
+            .offset(skip)\
+            .limit(limit)\
+            .all()
+
     def update(self, project: Project) -> Project:
         self.db.commit()
         self.db.refresh(project)

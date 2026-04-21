@@ -6,11 +6,13 @@
  */
 
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
 const API_BASE = 'http://localhost:8000'
 
 function ProjectsManager() {
+  const navigate = useNavigate()
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -113,18 +115,34 @@ function ProjectsManager() {
                     {new Date(project.created_at).toLocaleString('zh-CN')}
                   </td>
                   <td style={styles.td}>
-                    <button
-                      onClick={() => viewProject(project.id)}
-                      style={styles.actionButton}
-                    >
-                      查看
-                    </button>
-                    <button
-                      onClick={() => deleteProject(project.id)}
-                      style={{...styles.actionButton, ...styles.deleteButton}}
-                    >
-                      删除
-                    </button>
+                    <div style={styles.actionButtons}>
+                      <button
+                        onClick={() => navigate(`/result/${project.id}`)}
+                        style={styles.primaryButton}
+                        title="查看结果页面"
+                      >
+                        📺 结果
+                      </button>
+                      <button
+                        onClick={() => navigate(`/generate/${project.id}`)}
+                        style={styles.secondaryButton}
+                        title="查看生成进度"
+                      >
+                        ⚙️ 进度
+                      </button>
+                      <button
+                        onClick={() => viewProject(project.id)}
+                        style={styles.actionButton}
+                      >
+                        查看
+                      </button>
+                      <button
+                        onClick={() => deleteProject(project.id)}
+                        style={{...styles.actionButton, ...styles.deleteButton}}
+                      >
+                        删除
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -144,6 +162,26 @@ function ProjectsManager() {
 }
 
 function ProjectDetailModal({ project, onClose }) {
+  const navigate = useNavigate()
+  const [scenes, setScenes] = useState([])
+  const [loadingScenes, setLoadingScenes] = useState(false)
+
+  useEffect(() => {
+    const loadScenes = async () => {
+      try {
+        setLoadingScenes(true)
+        const response = await axios.get(`${API_BASE}/projects/${project.id}/scenes`)
+        setScenes(response.data)
+      } catch (error) {
+        console.error('Failed to load scenes:', error)
+      } finally {
+        setLoadingScenes(false)
+      }
+    }
+
+    loadScenes()
+  }, [project.id])
+
   return (
     <div style={styles.modalOverlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -174,6 +212,53 @@ function ProjectDetailModal({ project, onClose }) {
               <pre style={styles.pre}>{project.article_content}</pre>
             </div>
           )}
+
+          {/* 快捷导航按钮 */}
+          <div style={styles.quickActions}>
+            <h3 style={styles.quickActionsTitle}>快捷导航</h3>
+            <div style={styles.quickButtonsGrid}>
+              <button
+                onClick={() => navigate(`/result/${project.id}`)}
+                style={styles.quickButton}
+              >
+                <span style={styles.quickButtonIcon}>📺</span>
+                <span style={styles.quickButtonLabel}>查看结果</span>
+              </button>
+              <button
+                onClick={() => navigate(`/generate/${project.id}`)}
+                style={styles.quickButton}
+              >
+                <span style={styles.quickButtonIcon}>⚙️</span>
+                <span style={styles.quickButtonLabel}>生成进度</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 场景列表 */}
+          {loadingScenes ? (
+            <div style={styles.scenesLoading}>加载场景中...</div>
+          ) : scenes.length > 0 ? (
+            <div style={styles.scenesSection}>
+              <h3 style={styles.scenesSectionTitle}>场景列表</h3>
+              <div style={styles.scenesList}>
+                {scenes.map((scene, index) => (
+                  <div key={scene.scene_id} style={styles.sceneItem}>
+                    <div style={styles.sceneInfo}>
+                      <span style={styles.sceneNumber}>场景 {index + 1}</span>
+                      <span style={styles.sceneType}>{scene.template_type}</span>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/timeline-editor/${scene.scene_id}`)}
+                      style={styles.sceneButton}
+                      title="打开时间轴编辑器"
+                    >
+                      🎬 编辑时间轴
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -286,9 +371,37 @@ const styles = {
     fontFamily: 'monospace',
     color: '#4d4c48' // Charcoal Warm
   },
+  actionButtons: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap'
+  },
+  primaryButton: {
+    padding: '6px 12px',
+    backgroundColor: '#c96442', // Terracotta Brand
+    color: '#faf9f5', // Ivory
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '500',
+    transition: 'all 0.2s',
+    boxShadow: '0px 0px 0px 1px #c96442'
+  },
+  secondaryButton: {
+    padding: '6px 12px',
+    backgroundColor: '#e8e6dc', // Warm Sand
+    color: '#4d4c48', // Charcoal Warm
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '500',
+    transition: 'all 0.2s',
+    boxShadow: '0px 0px 0px 1px #d1cfc5'
+  },
   actionButton: {
     padding: '6px 12px',
-    marginRight: '8px',
     backgroundColor: '#e8e6dc', // Warm Sand
     color: '#4d4c48', // Charcoal Warm
     border: 'none',
@@ -319,7 +432,7 @@ const styles = {
   modal: {
     backgroundColor: '#faf9f5', // Ivory
     borderRadius: '16px', // Very rounded
-    maxWidth: '600px',
+    maxWidth: '700px',
     width: '90%',
     maxHeight: '80vh',
     overflow: 'auto',
@@ -366,6 +479,101 @@ const styles = {
     maxHeight: '200px',
     fontFamily: 'monospace',
     color: '#4d4c48' // Charcoal Warm
+  },
+  quickActions: {
+    marginTop: '24px',
+    padding: '16px',
+    backgroundColor: '#e8e6dc', // Warm Sand
+    borderRadius: '8px',
+    border: '1px solid #d1cfc5'
+  },
+  quickActionsTitle: {
+    margin: '0 0 12px 0',
+    fontSize: '16px',
+    fontWeight: '500',
+    fontFamily: 'Georgia, serif',
+    color: '#141413'
+  },
+  quickButtonsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '12px'
+  },
+  quickButton: {
+    padding: '12px',
+    backgroundColor: '#faf9f5', // Ivory
+    border: '1px solid #f0eee6',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '8px',
+    transition: 'all 0.2s',
+    boxShadow: '0px 0px 0px 1px #d1cfc5'
+  },
+  quickButtonIcon: {
+    fontSize: '24px'
+  },
+  quickButtonLabel: {
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#141413'
+  },
+  scenesSection: {
+    marginTop: '24px'
+  },
+  scenesSectionTitle: {
+    margin: '0 0 12px 0',
+    fontSize: '16px',
+    fontWeight: '500',
+    fontFamily: 'Georgia, serif',
+    color: '#141413'
+  },
+  scenesList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px'
+  },
+  sceneItem: {
+    padding: '12px',
+    backgroundColor: '#e8e6dc', // Warm Sand
+    borderRadius: '8px',
+    border: '1px solid #d1cfc5',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  sceneInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px'
+  },
+  sceneNumber: {
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#141413'
+  },
+  sceneType: {
+    fontSize: '12px',
+    color: '#5e5d59'
+  },
+  sceneButton: {
+    padding: '8px 16px',
+    backgroundColor: '#c96442', // Terracotta Brand
+    color: '#faf9f5',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '500',
+    transition: 'all 0.2s',
+    boxShadow: '0px 0px 0px 1px #c96442'
+  },
+  scenesLoading: {
+    textAlign: 'center',
+    padding: '20px',
+    color: '#5e5d59'
   }
 }
 

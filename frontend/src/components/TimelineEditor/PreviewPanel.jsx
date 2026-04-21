@@ -17,21 +17,25 @@ export function PreviewPanel({ sceneId }) {
     try {
       const response = await fetch(`http://localhost:8000/scenes/${sceneId}/preview`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quality: 'low' })
+        headers: { 'Content-Type': 'application/json' }
       });
+
+      if (!response.ok) {
+        throw new Error('预览生成失败');
+      }
 
       const data = await response.json();
 
-      if (data.success && data.preview_url) {
-        setPreviewUrl(data.preview_url);
+      if (data.preview_url) {
+        // 构建完整的预览 URL
+        const fullUrl = `http://localhost:8000${data.preview_url}`;
+        setPreviewUrl(fullUrl);
       } else {
-        // 预览功能未完全实现
-        setError(data.message || '预览功能暂未实现');
+        setError('预览生成失败，请稍后重试');
       }
     } catch (err) {
       console.error('预览生成失败', err);
-      setError('预览生成失败，请稍后重试');
+      setError(err.message || '预览生成失败，请稍后重试');
     } finally {
       setLoading(false);
     }

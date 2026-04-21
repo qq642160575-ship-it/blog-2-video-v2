@@ -23,6 +23,38 @@ class JobStatusUpdate(BaseModel):
     error_message: Optional[str] = None
 
 
+@router.get("/jobs")
+def get_all_jobs(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all jobs with pagination
+    """
+    try:
+        job_service = JobService(db)
+        jobs = job_service.get_all_jobs(skip=skip, limit=limit)
+
+        return [
+            {
+                "id": job.id,
+                "project_id": job.project_id,
+                "job_type": job.job_type,
+                "status": job.status,
+                "stage": job.stage,
+                "progress": float(job.progress) if job.progress else 0.0,
+                "created_at": job.created_at.isoformat(),
+                "updated_at": job.updated_at.isoformat() if job.updated_at else None,
+                "error_code": job.error_code,
+                "error_message": job.error_message
+            }
+            for job in jobs
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
 @router.post("/projects/{project_id}/jobs/generate")
 def create_generation_job(
     project_id: str,

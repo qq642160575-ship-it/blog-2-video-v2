@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.models.scene import Scene
 from app.services.scene_service import SceneService
+from app.services.preview_service import get_preview_service
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -155,5 +156,75 @@ def get_scene_versions(
             }
             for v in versions
         ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/scenes/{scene_id}/preview")
+async def preview_scene(
+    scene_id: str,
+    start_time: float = 0,
+    end_time: Optional[float] = None,
+    quality: str = "low",
+    db: Session = Depends(get_db)
+):
+    """
+    Generate preview video for a scene
+
+    Args:
+        scene_id: Scene ID
+        start_time: Preview start time in seconds (default: 0)
+        end_time: Preview end time in seconds (default: full scene)
+        quality: Preview quality - "low" (640x360) or "medium" (854x480)
+
+    Returns:
+        Preview video URL and duration
+    """
+    try:
+        # Get scene data
+        scene_service = SceneService(db)
+        scene = scene_service.get_scene(scene_id)
+
+        if not scene:
+            raise HTTPException(status_code=404, detail=f"Scene {scene_id} not found")
+
+        # Prepare scene data
+        scene_data = {
+            "template_type": scene.template_type,
+            "voiceover": scene.voiceover,
+            "screen_text": scene.screen_text,
+            "duration_sec": scene.duration_sec,
+            "timeline_data": scene.timeline_data,
+            "audio_url": scene.audio_url,
+            "visual_params": scene.visual_params
+        }
+
+        # Generate preview
+        preview_service = get_preview_service()
+        preview_url = await preview_service.generate_preview(
+            scene_id=scene_id,
+            scene_data=scene_data,
+            start_time=start_time,
+            end_time=end_time,
+            quality=quality
+        )
+
+        if not preview_url:
+            raise HTTPException(status_code=500, detail="Failed to generate preview")
+
+        # Calculate duration
+        if end_time is None:
+            end_time = scene.duration_sec
+        duration = end_time - start_time
+
+        return {
+            "preview_url": preview_url,
+            "duration": duration,
+            "quality": quality,
+            "scene_id": scene_id
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

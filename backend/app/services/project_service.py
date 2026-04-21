@@ -89,3 +89,26 @@ class ProjectService:
         }, ttl=self.cache.LONG_TTL)
 
         return project
+
+    def get_all_projects(self, skip: int = 0, limit: int = 100) -> list[Project]:
+        """
+        Get all projects with pagination
+        """
+        # Try to get from cache first
+        cache_key = f"projects:list:{skip}:{limit}"
+        cached_data = self.cache.get(cache_key)
+
+        if cached_data:
+            # Return cached project IDs and fetch from DB
+            # (We cache the list but always fetch fresh data)
+            pass
+
+        # Get from database
+        projects = self.repo.get_all(skip=skip, limit=limit)
+
+        # Cache the project list (just IDs)
+        if projects:
+            project_ids = [p.id for p in projects]
+            self.cache.set(cache_key, project_ids, ttl=self.cache.SHORT_TTL)
+
+        return projects

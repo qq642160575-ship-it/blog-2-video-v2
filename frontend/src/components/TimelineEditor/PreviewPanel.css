@@ -1,9 +1,10 @@
 .preview-panel {
   width: 100%;
-  padding: 16px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  background: #faf9f5; /* Ivory */
+  border-radius: 12px; /* Generous */
+  border: 1px solid #f0eee6; /* Border Cream */
+  box-shadow: rgba(0, 0, 0, 0.05) 0px 4px 24px; /* Whisper shadow */
   margin-top: 16px;
 }
 
@@ -15,39 +16,41 @@
 }
 
 .panel-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
+  font-size: 16px;
+  font-weight: 500;
+  color: #141413; /* Near Black */
+  font-family: Georgia, serif; /* Anthropic Serif fallback */
 }
 
 .preview-btn {
-  padding: 8px 16px;
-  background: #10b981;
-  color: white;
+  padding: 10px 20px;
+  background: #c96442; /* Terracotta Brand */
+  color: #faf9f5; /* Ivory */
   border: none;
-  border-radius: 6px;
+  border-radius: 8px; /* Comfortable */
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s;
+  box-shadow: 0px 0px 0px 1px #c96442; /* Ring shadow */
 }
 
 .preview-btn:hover:not(:disabled) {
-  background: #059669;
+  background: #b55a3a;
   transform: translateY(-1px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .preview-btn:disabled {
-  background: #9ca3af;
+  background: #87867f; /* Stone Gray */
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .preview-error {
   padding: 16px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
+  background: #fee2e2;
+  border: 1px solid #b53333; /* Error Crimson */
+  border-radius: 8px; /* Comfortable */
   text-align: center;
 }
 
@@ -58,21 +61,22 @@
 
 .error-message {
   font-size: 14px;
-  color: #991b1b;
+  color: #b53333; /* Error Crimson */
   font-weight: 500;
   margin-bottom: 8px;
 }
 
 .error-hint {
   font-size: 12px;
-  color: #b91c1c;
+  color: #87867f; /* Stone Gray */
 }
 
 .preview-video-container {
   width: 100%;
-  background: #000;
-  border-radius: 6px;
+  background: #141413; /* Near Black */
+  border-radius: 12px; /* Generous */
   overflow: hidden;
+  border: 1px solid #30302e; /* Dark Surface */
 }
 
 .preview-video {
@@ -84,9 +88,9 @@
 .preview-placeholder {
   padding: 60px 20px;
   text-align: center;
-  background: #f9fafb;
-  border-radius: 6px;
-  border: 2px dashed #e5e7eb;
+  background: #e8e6dc; /* Warm Sand */
+  border-radius: 8px; /* Comfortable */
+  border: 2px dashed #d1cfc5; /* Ring Warm */
 }
 
 .placeholder-icon {
@@ -96,5 +100,5 @@
 
 .placeholder-text {
   font-size: 14px;
-  color: #6b7280;
+  color: #5e5d59; /* Olive Gray */
 }
