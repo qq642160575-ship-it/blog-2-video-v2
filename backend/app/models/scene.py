@@ -30,5 +30,13 @@ class Scene(Base):
     hook_type = Column(String(20), nullable=True)                         # question | reveal | contrast
     quality_score = Column(Float, nullable=True)                          # 0.0-1.0
 
+    # v4: 表达力与节奏数据字段（用于关键词强调和时间轴计算）
+    emphasis_words = Column(JSON, nullable=True)      # 需要强调的关键词列表，2-3个词
+    tts_metadata = Column(JSON, nullable=True)        # TTS返回的word-level timestamps等元数据
+    timeline_data = Column(JSON, nullable=True)       # 根据TTS timestamps计算的时间轴数据
+
+    # v5: 节奏规则字段（阶段2）
+    scene_type = Column(String(20), nullable=False, default='explanation')  # hook | explanation | contrast
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

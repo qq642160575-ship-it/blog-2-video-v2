@@ -62,6 +62,19 @@ class SceneData(BaseModel):
         description="情绪强度：1（低）-5（高）"
     )
 
+    # v4: 表达力与节奏字段
+    emphasis_words: Optional[List[str]] = Field(
+        default=None,
+        description="需要强调的关键词，2-3个最重要的词",
+        max_items=3
+    )
+
+    # v5: 节奏规则字段（阶段2）
+    scene_type: str = Field(
+        default="explanation",
+        description="场景类型：hook（开场吸引）| explanation（解释说明）| contrast（对比场景）"
+    )
+
 
 class SceneGeneration(BaseModel):
     """Scene generation result from LLM"""

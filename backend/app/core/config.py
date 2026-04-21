@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     azure_speech_key: str = ""
     azure_speech_region: str = "eastus"
 
+    # TTS Provider Configuration
+    tts_provider: str = "edge"  # Options: 'edge', 'volcengine'
+
+    # Volcengine TTS Configuration
+    volcengine_app_id: str = ""
+    volcengine_access_token: str = ""
+    volcengine_cluster: str = "volcano_tts"
+    volcengine_api_key: str = ""
+
     # Storage
     storage_path: str = "./storage"
 

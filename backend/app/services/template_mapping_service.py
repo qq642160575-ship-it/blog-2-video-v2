@@ -70,6 +70,10 @@ class TemplateMappingService:
         if audio_url:
             manifest_scene["audio_url"] = audio_url
 
+        # v4: 添加时间轴数据（用于关键词强调动效）
+        if scene.get("timeline_data"):
+            manifest_scene["timeline_data"] = scene["timeline_data"]
+
         return manifest_scene
 
     def _normalize_screen_text(self, value: Any) -> List[str]:

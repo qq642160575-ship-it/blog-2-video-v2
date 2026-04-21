@@ -282,6 +282,8 @@ def generate_scenes(state: GenerationState) -> GenerationState:
                         "scene_role": scene.scene_role,
                         "narrative_stage": scene.narrative_stage,
                         "emotion_level": scene.emotion_level,
+                        # [v4] 关键词强调字段
+                        "emphasis_words": scene.emphasis_words or [],
                     })
                 state["execution_summary"]["scene_generate_mode"] = "real"
                 print(f"  ✓ Generated {len(scenes_data)} scenes (Real LLM)")
@@ -443,10 +445,14 @@ def validate_scenes(state: GenerationState) -> GenerationState:
                 emotion_level=scene_data.get("emotion_level", 3),
                 hook_type=scene_data.get("hook_type"),
                 quality_score=scene_data.get("quality_score"),
+                # v4 表达力与节奏字段
+                emphasis_words=scene_data.get("emphasis_words", []),
+                # v5 节奏规则字段（阶段2）
+                scene_type=scene_data.get("scene_type", "explanation"),
             )
             db.add(scene)
         db.commit()
-        print(f"  ✓ Scenes saved to database (with v3 fields)")
+        print(f"  ✓ Scenes saved to database (with v3 + v4 + v5 fields)")
 
         return state
     finally:
@@ -454,7 +460,7 @@ def validate_scenes(state: GenerationState) -> GenerationState:
 
 
 def generate_tts(state: GenerationState) -> GenerationState:
-    """Generate TTS audio"""
+    """Generate TTS audio and calculate timeline"""
     db = SessionLocal()
     try:
         job_service = JobService(db)
@@ -478,11 +484,63 @@ def generate_tts(state: GenerationState) -> GenerationState:
         else:
             try:
                 from app.services.tts_service import TTSService
+                from app.services.timeline_calculate_service import TimelineCalculateService
 
                 tts_service = TTSService()
-                audio_paths = tts_service.synthesize_batch(state["scenes_data"])
+                timeline_service = TimelineCalculateService()
+
+                # Process each scene
+                for scene_data in state["scenes_data"]:
+                    scene_id = scene_data["scene_id"]
+                    voiceover = scene_data["voiceover"]
+                    pace = scene_data.get("pace", "medium")
+                    emphasis_words = scene_data.get("emphasis_words", [])
+                    scene_type = scene_data.get("scene_type", "explanation")  # v5: 节奏规则
+                    duration_sec = scene_data.get("duration_sec", 8)
+
+                    # Generate TTS with metadata
+                    result = tts_service._service.synthesize_scene_audio(
+                        scene_id=scene_id,
+                        voiceover=voiceover,
+                        pace=pace
+                    )
+
+                    # Handle both old (str) and new (tuple) return formats
+                    if isinstance(result, tuple):
+                        audio_path, tts_metadata = result
+                    else:
+                        audio_path = result
+                        tts_metadata = None
+
+                    audio_paths[scene_id] = audio_path
+
+                    # v5: Calculate timeline with rhythm rules
+                    timeline_data = None
+                    if tts_metadata and emphasis_words:
+                        timeline_data = timeline_service.calculate_timeline_with_rhythm(
+                            emphasis_words=emphasis_words,
+                            tts_metadata=tts_metadata,
+                            voiceover=voiceover,
+                            scene_type=scene_type,
+                            duration_sec=duration_sec
+                        )
+                        if timeline_data:
+                            match_rate = timeline_data.get("stats", {}).get("match_rate", 0)
+                            rhythm_rule = timeline_data.get("rhythm_rule_applied", "none")
+                            print(f"  ✓ Timeline calculated for {scene_id} ({scene_type}): {len(timeline_data.get('keyframes', []))} keyframes, rhythm={rhythm_rule}, match={match_rate*100:.0f}%")
+
+                    # Update scene in database with TTS metadata and timeline
+                    scene = db.query(Scene).filter(Scene.id == scene_id).first()
+                    if scene:
+                        scene.tts_metadata = tts_metadata
+                        scene.timeline_data = timeline_data
+                        db.commit()
+
+                    # v4: Add timeline_data to state for render manifest
+                    scene_data["timeline_data"] = timeline_data
+
                 state["execution_summary"]["tts_mode"] = "real"
-                print(f"  ✓ Generated audio for {len(audio_paths)} scenes (Edge TTS)")
+                print(f"  ✓ Generated audio for {len(audio_paths)} scenes")
             except Exception as e:
                 print(f"  ⚠ TTS failed: {str(e)[:100]}")
                 state["execution_summary"]["tts_mode"] = "failed"

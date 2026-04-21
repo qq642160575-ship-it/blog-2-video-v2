@@ -57,6 +57,25 @@ class SceneGenerateService:
 4. 总时长控制在 45-60 秒
 5. 旁白要口语化、简洁，避免书面语
 
+## 【v4新增】关键词强调
+每个场景必须标注 emphasis_words（2-3个最重要的词）：
+- 从 voiceover 中选择最核心的 2-3 个词
+- 优先选择：核心概念、数字、对比词、结论词
+- 示例：旁白"这个方法能让你的效率提升3倍" → emphasis_words: ["方法", "效率", "3倍"]
+
+## 【v5新增】场景类型标注（阶段2）
+每个场景必须标注 scene_type（场景类型）：
+- hook: 开场吸引注意力的场景（通常是第1个场景）
+  * 特点：快节奏、关键词密集、制造悬念或好奇
+  * 示例：提出问题、展示惊人数据、制造对比
+- explanation: 解释说明的场景（大部分场景）
+  * 特点：中等节奏、关键词均匀分布、逻辑清晰
+  * 示例：概念解释、步骤说明、案例分析
+- contrast: 对比场景（包含对比关系的场景）
+  * 特点：成对出现、强调差异、使用对比词
+  * 示例：传统vs新方法、问题vs解决方案、before vs after
+  * 关键词：但是、相反、而、然而、不同于、优于
+
 ## 返回格式
 必须返回纯 JSON，包含以下字段：
 - scenes: 场景列表（6-10个）
@@ -70,6 +89,8 @@ class SceneGenerateService:
   - scene_role: hook|body|close
   - narrative_stage: opening|build|payoff|close
   - emotion_level: 1-5
+  - emphasis_words: 关键词列表（2-3个）【v4新增必填】
+  - scene_type: hook|explanation|contrast【v5新增必填】
 - total_duration: 总时长（45-60秒）
 - narrative_flow: 叙事流程说明
 - confidence: 生成置信度（0-1）
