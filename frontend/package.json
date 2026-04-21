@@ -8,10 +8,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "axios": "^1.6.5",
+    "framer-motion": "^12.38.0",
+    "lodash": "^4.18.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.0",
-    "axios": "^1.6.5"
+    "wavesurfer.js": "^7.12.6",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@types/react": "^18.2.48",

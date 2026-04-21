@@ -32,7 +32,7 @@ class ArticleParseService:
             temperature=0.3,
             openai_api_key=settings.openai_api_key,
             openai_api_base=settings.openai_base_url
-        ).with_structured_output(schema=ArticleAnalysis)
+        ).with_structured_output(schema=ArticleAnalysis, method="function_calling")
 
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个专业的内容分析师，擅长分析技术文章并提取关键信息。

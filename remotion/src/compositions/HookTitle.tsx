@@ -37,6 +37,15 @@ export const HookTitle: React.FC<HookTitleProps> = ({title, subtitle, audioPath,
     (sub) => currentTimeMs >= sub.start_ms && currentTimeMs < sub.end_ms
   );
 
+  // Convert audio path to relative path for staticFile
+  const getAudioSrc = (path: string | undefined) => {
+    if (!path) return undefined;
+    // Remove storage prefix - staticFile expects path relative to public dir
+    // e.g., "./storage/audio/file.mp3" -> "audio/file.mp3"
+    const relativePath = path.replace(/^.*\/storage\//, '').replace(/^\.\/storage\//, '');
+    return staticFile(relativePath);
+  };
+
   return (
     <AbsoluteFill
       style={{
@@ -47,7 +56,7 @@ export const HookTitle: React.FC<HookTitleProps> = ({title, subtitle, audioPath,
       }}
     >
       {/* Audio */}
-      {audioPath && <Audio src={audioPath} />}
+      {audioPath && <Audio src={getAudioSrc(audioPath)} />}
 
       {/* Main content */}
       <div

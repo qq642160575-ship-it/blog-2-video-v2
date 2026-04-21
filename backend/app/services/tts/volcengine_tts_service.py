@@ -98,7 +98,7 @@ class VolcengineTTSService(BaseTTSService):
         self,
         text: str,
         output_filename: Optional[str] = None,
-        voice_name: Optional[str] = None,
+        voice_name: Optional[str] = 'BV001_streaming',
         speaking_rate: float = 1.0
     ) -> tuple[str, Optional[dict]]:
         """

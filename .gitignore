@@ -45,3 +45,4 @@ frontend/node_modules/
 remotion/node_modules/
 remotion/out/
 render-worker/node_modules/
+/.claude/skills/

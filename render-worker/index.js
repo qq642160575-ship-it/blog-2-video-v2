@@ -203,6 +203,7 @@ class RenderWorker {
         compositionId,
         outputPath,
         '--props', propsJson,
+        '--public-dir', STORAGE_DIR,
       ];
 
       if (durationInFrames) {

@@ -13,6 +13,7 @@ import {
   spring,
   useCurrentFrame,
   useVideoConfig,
+  staticFile,
 } from 'remotion';
 import type {SubtitleItem} from './BulletExplain';
 
@@ -111,6 +112,13 @@ export const CompareProcess: React.FC<CompareProcessProps> = ({
     (sub) => currentTimeMs >= sub.start_ms && currentTimeMs < sub.end_ms
   );
 
+  // Convert audio path to relative path for staticFile
+  const getAudioSrc = (path: string | undefined) => {
+    if (!path) return undefined;
+    const relativePath = path.replace(/^.*\/storage\//, '').replace(/^\.\/storage\//, '');
+    return staticFile(relativePath);
+  };
+
   return (
     <AbsoluteFill
       style={{
@@ -121,7 +129,7 @@ export const CompareProcess: React.FC<CompareProcessProps> = ({
         padding: '96px 64px 180px',
       }}
     >
-      {audioPath && <Audio src={audioPath} />}
+      {audioPath && <Audio src={getAudioSrc(audioPath)} />}
 
       <div
         style={{

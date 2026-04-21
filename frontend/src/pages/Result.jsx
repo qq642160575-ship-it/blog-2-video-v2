@@ -129,7 +129,13 @@ function Result() {
                       onClick={() => navigate(`/edit-scene/${scene.scene_id}`)}
                       style={styles.editButton}
                     >
-                      编辑
+                      编辑场景
+                    </button>
+                    <button
+                      onClick={() => navigate(`/timeline-editor/${scene.scene_id}`)}
+                      style={styles.timelineButton}
+                    >
+                      ⏱️ 时间轴
                     </button>
                   </div>
                 </div>
@@ -316,6 +322,17 @@ const styles = {
     fontWeight: '600',
     color: 'white',
     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.3s'
+  },
+  timelineButton: {
+    padding: '8px 16px',
+    fontSize: '14px',
+    fontWeight: '600',
+    color: 'white',
+    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',

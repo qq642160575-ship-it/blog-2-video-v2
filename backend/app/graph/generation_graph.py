@@ -424,6 +424,9 @@ def validate_scenes(state: GenerationState) -> GenerationState:
             else:
                 print("  ✓ Schema 验证完成 (v2, skipped EnhancedValidator)")
 
+        # Delete existing scenes for this project before inserting new ones
+        db.query(Scene).filter(Scene.project_id == state["project_id"]).delete()
+
         # Save scenes to database (incl. v3 fields)
         for scene_data in state["scenes_data"]:
             scene = Scene(

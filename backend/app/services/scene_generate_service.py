@@ -32,7 +32,7 @@ class SceneGenerateService:
             openai_api_key=settings.openai_api_key,
             openai_api_base=settings.openai_base_url,
             request_timeout=60
-        ).with_structured_output(schema=SceneGeneration)
+        ).with_structured_output(schema=SceneGeneration, method="function_calling")
 
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个专业的视频脚本编剧，擅长将文章内容转化为短视频分镜脚本。

@@ -11,7 +11,10 @@ from app.services.scene_service import SceneService
 from pydantic import BaseModel
 from typing import List, Optional
 
-router = APIRouter(prefix="/projects", tags=["scenes"])
+router = APIRouter(tags=["scenes"])
+
+# Router for project-scoped scene operations
+project_router = APIRouter(prefix="/projects", tags=["scenes"])
 
 
 class SceneUpdateRequest(BaseModel):
@@ -23,7 +26,7 @@ class SceneUpdateRequest(BaseModel):
     visual_params: Optional[dict] = None
 
 
-@router.get("/{project_id}/scenes")
+@project_router.get("/{project_id}/scenes")
 def get_project_scenes(
     project_id: str,
     db: Session = Depends(get_db)
@@ -51,6 +54,40 @@ def get_project_scenes(
             }
             for scene in scenes
         ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/scenes/{scene_id}")
+def get_scene(
+    scene_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get a single scene by ID
+    """
+    try:
+        scene_service = SceneService(db)
+        scene = scene_service.get_scene(scene_id)
+
+        if not scene:
+            raise HTTPException(status_code=404, detail=f"Scene {scene_id} not found")
+
+        return {
+            "scene_id": scene.id,
+            "version": scene.current_version,
+            "order": scene.scene_order,
+            "template_type": scene.template_type,
+            "goal": scene.goal,
+            "voiceover": scene.voiceover,
+            "screen_text": scene.screen_text,
+            "duration_sec": scene.duration_sec,
+            "pace": scene.pace,
+            "transition": scene.transition,
+            "visual_params": scene.visual_params
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 

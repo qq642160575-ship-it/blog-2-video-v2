@@ -1,0 +1,61 @@
+.timeline-editor {
+  width: 100%;
+  padding: 20px;
+  background: #f9fafb;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.timeline-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.play-pause-btn {
+  padding: 8px 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.play-pause-btn:hover {
+  background: #2563eb;
+}
+
+.play-pause-btn:active {
+  background: #1d4ed8;
+}
+
+.duration-display {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.waveform-container {
+  width: 100%;
+  background: white;
+  border-radius: 6px;
+  padding: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.timeline-info {
+  margin-top: 16px;
+  padding: 12px;
+  background: #fef3c7;
+  border-left: 4px solid #f59e0b;
+  border-radius: 4px;
+}
+
+.timeline-info p {
+  margin: 0;
+  font-size: 14px;
+  color: #92400e;
+}

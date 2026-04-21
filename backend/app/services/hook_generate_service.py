@@ -4,36 +4,35 @@ pos: 位于 service 层，负责开场 Hook 的生成与选优。
 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。"""
 
 import os
-import re
-import json
 import time
-from typing import Optional, List
+from typing import Optional
 
-from app.schemas.hook import Hook, HookResult
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from app.schemas.hook import HookResult
+from app.core.config import get_settings
 from app.core.logging_config import get_logger
 
+settings = get_settings()
 logger = get_logger("app")
 
 
 class HookGenerateService:
     """
-    开场 Hook 生成服务（v3）。
-    - 优先调用真实 LLM（DeepSeek）
+    开场 Hook 生成服务（v4 - 使用 with_structured_output）。
+    - 使用 LangChain 结构化输出，自动解析为 Pydantic 模型
     - LLM 不可用时自动降级为 Mock
     - 支持最多 max_retries 次重试
     """
 
     def __init__(self):
         self._llm = None  # 懒加载
+        self._prompt = None  # 懒加载
 
     def _get_llm(self):
         """懒加载 LLM 客户端（避免 import 时就需要 API Key）"""
         if self._llm is None:
             try:
-                from langchain_openai import ChatOpenAI
-                from app.core.config import get_settings
-                settings = get_settings()
-
                 if os.environ.get("ALL_PROXY", "").startswith("socks://"):
                     os.environ.pop("ALL_PROXY", None)
 
@@ -43,10 +42,39 @@ class HookGenerateService:
                     openai_api_key=settings.openai_api_key,
                     openai_api_base=settings.openai_base_url,
                     request_timeout=30,
-                )
+                ).with_structured_output(schema=HookResult, method="function_calling")
             except Exception as e:
                 logger.warning(f"LLM 初始化失败，将使用 Mock: {e}")
         return self._llm
+
+    def _get_prompt(self):
+        """懒加载 Prompt 模板"""
+        if self._prompt is None:
+            self._prompt = ChatPromptTemplate.from_messages([
+                ("system", """你是短视频Hook专家。基于用户提供的信息，生成3个不同类型的开场Hook。
+
+要求：
+1. 生成3个Hook，类型分别为：question（疑问）、contrast（对比）、reveal（揭秘）
+2. 每个Hook必须在3秒内制造好奇缺口
+3. 不能夸大或偏离主题
+4. 每个Hook给出质量评分（0.0-1.0）
+5. 自动选择最佳Hook（优先 question，其次 contrast）
+
+返回格式：
+- hooks: Hook列表（3个）
+  - type: question|contrast|reveal
+  - content: Hook文本内容
+  - score: 质量评分（0.0-1.0）
+- selected_index: 选中的Hook索引（0-2）"""),
+                ("user", """请根据以下信息生成3个开场Hook：
+
+主题: {theme}
+关键点: {key_points}
+目标受众: {audience}
+
+请生成3个不同类型的Hook，并自动选择最佳的一个。""")
+            ])
+        return self._prompt
 
     # ------------------------------------------------------------------
     # 公开接口
@@ -63,9 +91,6 @@ class HookGenerateService:
         Returns:
             HookResult
         """
-        from app.core.config import get_settings
-        settings = get_settings()
-
         # 判断是否有有效 API Key
         has_api_key = (
             settings.openai_api_key
@@ -101,92 +126,34 @@ class HookGenerateService:
                     return self._get_default_hook(analysis)
 
     # ------------------------------------------------------------------
-    # 真实 LLM 实现
+    # 真实 LLM 实现（使用 with_structured_output）
     # ------------------------------------------------------------------
 
     def _generate_hooks_real(self, analysis: dict) -> HookResult:
-        """调用真实 LLM 生成 Hook"""
+        """调用真实 LLM 生成 Hook（使用结构化输出）"""
         llm = self._get_llm()
         if llm is None:
             raise RuntimeError("LLM 客户端不可用")
 
-        prompt = self._build_prompt(analysis)
-        response = llm.invoke(prompt)
-        response_text = response.content if hasattr(response, "content") else str(response)
+        prompt = self._get_prompt()
 
-        hooks = self._parse_response(response_text)
-        selected_index = self._select_best(hooks)
-        return HookResult(hooks=hooks, selected_index=selected_index)
-
-    def _build_prompt(self, analysis: dict) -> str:
+        # 提取分析数据
         theme = analysis.get("theme") or analysis.get("topic") or "未知主题"
         key_points = analysis.get("key_points") or []
         audience = analysis.get("target_audience") or analysis.get("audience") or "普通大众"
 
         key_points_text = "、".join(key_points) if key_points else "无"
 
-        return f"""你是短视频Hook专家。基于以下信息，生成3个不同类型的开场Hook。
+        # 构建 chain 并调用
+        chain = prompt | llm
+        result = chain.invoke({
+            "theme": theme,
+            "key_points": key_points_text,
+            "audience": audience,
+        })
 
-主题: {theme}
-关键点: {key_points_text}
-目标受众: {audience}
-
-要求：
-1. 生成3个Hook，类型分别为：question（疑问）、contrast（对比）、reveal（揭秘）
-2. 每个Hook必须在3秒内制造好奇缺口
-3. 不能夸大或偏离主题
-4. 每个Hook给出质量评分（0.0-1.0）
-
-只返回 JSON，不要任何解释：
-{{
-  "hooks": [
-    {{"type": "question", "content": "为什么...", "score": 0.85}},
-    {{"type": "contrast", "content": "你以为...其实...", "score": 0.78}},
-    {{"type": "reveal", "content": "90%的人不知道...", "score": 0.72}}
-  ]
-}}"""
-
-    def _parse_response(self, response_text: str) -> List[Hook]:
-        """解析 LLM 响应（带 JSON 修复）"""
-        # 提取 JSON 块
-        json_match = re.search(r'\{[\s\S]*\}', response_text)
-        text = json_match.group(0) if json_match else response_text
-
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            text = self._fix_json(text)
-            data = json.loads(text)
-
-        hooks_raw = data.get("hooks", [])
-        if not hooks_raw:
-            raise ValueError("LLM 响应中没有 hooks 字段")
-
-        hooks = []
-        for h in hooks_raw:
-            try:
-                hooks.append(Hook(
-                    type=h["type"],
-                    content=h["content"],
-                    score=float(h.get("score", 0.7))
-                ))
-            except Exception as e:
-                logger.warning(f"跳过无效 Hook: {h} ({e})")
-
-        if not hooks:
-            raise ValueError("未能解析出任何有效 Hook")
-
-        return hooks
-
-    def _select_best(self, hooks: List[Hook]) -> int:
-        """选优：优先 question，其次 contrast"""
-        for i, hook in enumerate(hooks):
-            if hook.type == "question":
-                return i
-        for i, hook in enumerate(hooks):
-            if hook.type == "contrast":
-                return i
-        return 0
+        # result 已经是 HookResult 对象，直接返回
+        return result
 
     # ------------------------------------------------------------------
     # Mock 实现（兜底）
@@ -194,6 +161,8 @@ class HookGenerateService:
 
     def _generate_hooks_mock(self, analysis: dict) -> HookResult:
         """Mock 版本：返回固定模板 Hook"""
+        from app.schemas.hook import Hook
+
         theme = analysis.get("theme") or analysis.get("topic") or "未知主题"
         hooks = [
             Hook(type="question", content=f"为什么{theme}这么重要？", score=0.85),
@@ -204,6 +173,8 @@ class HookGenerateService:
 
     def _get_default_hook(self, analysis: dict) -> HookResult:
         """最终兜底 Hook（所有重试均失败时使用）"""
+        from app.schemas.hook import Hook
+
         theme = analysis.get("theme") or analysis.get("topic") or "这个话题"
         hook = Hook(
             type="reveal",
@@ -211,11 +182,3 @@ class HookGenerateService:
             score=0.5
         )
         return HookResult(hooks=[hook], selected_index=0)
-
-    @staticmethod
-    def _fix_json(text: str) -> str:
-        """修复常见 LLM JSON 格式错误"""
-        text = re.sub(r',\s*}', '}', text)
-        text = re.sub(r',\s*]', ']', text)
-        text = re.sub(r'//.*?\n', '\n', text)
-        return text

@@ -54,7 +54,11 @@ function GenerationProgress() {
         setProgress(jobData.progress || 0)
 
         if (jobData.error) {
-          setError(jobData.error)
+          // Convert error object to string if needed
+          const errorMsg = typeof jobData.error === 'object'
+            ? (jobData.error.message || JSON.stringify(jobData.error))
+            : jobData.error
+          setError(errorMsg)
         }
 
         // Stop polling if completed or failed
@@ -66,7 +70,13 @@ function GenerationProgress() {
           }, 1500)
         } else if (jobData.status === 'failed') {
           clearInterval(pollInterval)
-          setError(jobData.error || '生成失败')
+          // Convert error object to string if needed
+          const errorMsg = jobData.error
+            ? (typeof jobData.error === 'object'
+                ? (jobData.error.message || JSON.stringify(jobData.error))
+                : jobData.error)
+            : '生成失败'
+          setError(errorMsg)
         }
       } catch (err) {
         console.error('Error polling job status:', err)

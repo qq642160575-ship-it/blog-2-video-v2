@@ -11,6 +11,7 @@ import CreateProject from './pages/CreateProject'
 import GenerationProgress from './pages/GenerationProgress'
 import Result from './pages/Result'
 import EditScene from './pages/EditScene'
+import { TimelineEditorPage } from './pages/TimelineEditorPage'
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
             <Route path="/generate/:projectId" element={<GenerationProgress />} />
             <Route path="/result/:projectId" element={<Result />} />
             <Route path="/edit-scene/:sceneId" element={<EditScene />} />
+            <Route path="/timeline-editor/:sceneId" element={<TimelineEditorPage />} />
           </Routes>
         </main>
 
