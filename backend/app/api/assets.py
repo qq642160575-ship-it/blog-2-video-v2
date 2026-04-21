@@ -9,6 +9,9 @@ from app.core.db import get_db
 from app.services.asset_service import AssetService
 from typing import Optional
 from pydantic import BaseModel
+import os
+from pathlib import Path
+from datetime import datetime
 
 router = APIRouter(tags=["assets"])
 
@@ -272,5 +275,104 @@ def get_storage_stats(db: Session = Depends(get_db)):
         stats = asset_service.get_storage_stats()
 
         return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/assets/browse/{resource_type}")
+def browse_storage_files(resource_type: str):
+    """Browse files in storage directory by type (videos, audio, manifests)"""
+    try:
+        # Define storage base path
+        storage_base = Path(__file__).parent.parent.parent / "storage"
+
+        # Map resource types to directories
+        type_mapping = {
+            "videos": "videos",
+            "audio": "audio",
+            "manifests": "manifests"
+        }
+
+        if resource_type not in type_mapping:
+            raise HTTPException(status_code=400, detail=f"Invalid resource type: {resource_type}")
+
+        target_dir = storage_base / type_mapping[resource_type]
+
+        if not target_dir.exists():
+            return {
+                "files": [],
+                "stats": {
+                    "totalSize": 0,
+                    "videoCount": 0,
+                    "audioCount": 0,
+                    "manifestCount": 0
+                }
+            }
+
+        # Scan directory for files
+        files = []
+        total_size = 0
+
+        for file_path in target_dir.rglob("*"):
+            if file_path.is_file():
+                stat = file_path.stat()
+                relative_path = file_path.relative_to(storage_base)
+
+                files.append({
+                    "name": file_path.name,
+                    "path": f"/storage/{relative_path.as_posix()}",
+                    "size": stat.st_size,
+                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
+                })
+                total_size += stat.st_size
+
+        # Sort by modification time (newest first)
+        files.sort(key=lambda x: x["modified"], reverse=True)
+
+        # Get counts for all types
+        video_count = len(list((storage_base / "videos").rglob("*"))) if (storage_base / "videos").exists() else 0
+        audio_count = len(list((storage_base / "audio").rglob("*"))) if (storage_base / "audio").exists() else 0
+        manifest_count = len(list((storage_base / "manifests").rglob("*"))) if (storage_base / "manifests").exists() else 0
+
+        return {
+            "files": files,
+            "stats": {
+                "totalSize": total_size,
+                "videoCount": video_count,
+                "audioCount": audio_count,
+                "manifestCount": manifest_count
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.delete("/assets/file")
+def delete_storage_file(path: str = Query(...)):
+    """Delete a file from storage"""
+    try:
+        storage_base = Path(__file__).parent.parent.parent / "storage"
+
+        # Remove leading /storage/ if present
+        clean_path = path.replace("/storage/", "")
+        file_path = storage_base / clean_path
+
+        # Security check: ensure path is within storage directory
+        if not file_path.resolve().is_relative_to(storage_base.resolve()):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+
+        if not file_path.is_file():
+            raise HTTPException(status_code=400, detail="Path is not a file")
+
+        file_path.unlink()
+
+        return {"message": "File deleted successfully", "path": path}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

@@ -12,6 +12,7 @@ import GenerationProgress from './pages/GenerationProgress'
 import Result from './pages/Result'
 import EditScene from './pages/EditScene'
 import { TimelineEditorPage } from './pages/TimelineEditorPage'
+import AdminDashboard from './pages/AdminDashboard'
 
 function App() {
   return (
@@ -26,6 +27,9 @@ function App() {
               </div>
             </Link>
             <div style={styles.navRight}>
+              <Link to="/admin" style={styles.adminLink}>
+                <span style={styles.adminButton}>⚙️ 管理后台</span>
+              </Link>
               <span style={styles.badge}>AI Powered</span>
             </div>
           </div>
@@ -38,6 +42,7 @@ function App() {
             <Route path="/result/:projectId" element={<Result />} />
             <Route path="/edit-scene/:sceneId" element={<EditScene />} />
             <Route path="/timeline-editor/:sceneId" element={<TimelineEditorPage />} />
+            <Route path="/admin" element={<AdminDashboard />} />
           </Routes>
         </main>
 
@@ -56,13 +61,13 @@ const styles = {
     minHeight: '100vh',
     display: 'flex',
     flexDirection: 'column',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+    backgroundColor: '#f5f4ed' // Parchment
   },
   nav: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     backdropFilter: 'blur(10px)',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+    borderBottom: '1px solid #f0eee6', // Border Cream
+    boxShadow: 'rgba(0, 0, 0, 0.05) 0px 4px 24px', // Whisper shadow
     position: 'sticky',
     top: 0,
     zIndex: 1000
@@ -90,21 +95,36 @@ const styles = {
   navTitle: {
     margin: '0',
     padding: '20px 0',
-    fontSize: '24px',
-    fontWeight: 'bold',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text'
+    fontSize: '25.6px', // Subhead Small
+    fontWeight: '500',
+    fontFamily: 'Georgia, serif', // Anthropic Serif fallback
+    color: '#141413', // Near Black
+    lineHeight: '1.2'
   },
   navRight: {
     display: 'flex',
-    alignItems: 'center'
+    alignItems: 'center',
+    gap: '16px'
+  },
+  adminLink: {
+    textDecoration: 'none'
+  },
+  adminButton: {
+    padding: '8px 16px',
+    backgroundColor: '#e8e6dc', // Warm Sand
+    color: '#4d4c48', // Charcoal Warm
+    borderRadius: '8px', // Comfortable
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    border: 'none',
+    boxShadow: '0px 0px 0px 1px #d1cfc5' // Ring shadow
   },
   badge: {
     padding: '6px 12px',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    color: 'white',
+    backgroundColor: '#c96442', // Terracotta Brand
+    color: '#faf9f5', // Ivory
     borderRadius: '20px',
     fontSize: '12px',
     fontWeight: '600',
@@ -119,14 +139,14 @@ const styles = {
     margin: '0 auto'
   },
   footer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#30302e', // Dark Surface
     backdropFilter: 'blur(10px)',
     padding: '20px',
     textAlign: 'center',
-    borderTop: '1px solid rgba(255, 255, 255, 0.2)'
+    borderTop: '1px solid #30302e'
   },
   footerText: {
-    color: 'white',
+    color: '#b0aea5', // Warm Silver
     fontSize: '14px',
     margin: 0
   }

@@ -1,0 +1,262 @@
+/**
+ * Design System inspired by Claude (Anthropic)
+ * Warm, editorial, literary aesthetic with parchment tones
+ */
+
+:root {
+  /* Primary Colors */
+  --color-near-black: #141413;
+  --color-terracotta: #c96442;
+  --color-coral: #d97757;
+
+  /* Secondary & Accent */
+  --color-error: #b53333;
+  --color-focus: #3898ec;
+
+  /* Surface & Background */
+  --color-parchment: #f5f4ed;
+  --color-ivory: #faf9f5;
+  --color-white: #ffffff;
+  --color-warm-sand: #e8e6dc;
+  --color-dark-surface: #30302e;
+  --color-deep-dark: #141413;
+
+  /* Neutrals & Text */
+  --color-charcoal-warm: #4d4c48;
+  --color-olive-gray: #5e5d59;
+  --color-stone-gray: #87867f;
+  --color-dark-warm: #3d3d3a;
+  --color-warm-silver: #b0aea5;
+
+  /* Borders */
+  --color-border-cream: #f0eee6;
+  --color-border-warm: #e8e6dc;
+  --color-border-dark: #30302e;
+  --color-ring-warm: #d1cfc5;
+  --color-ring-subtle: #dedc01;
+  --color-ring-deep: #c2c0b6;
+
+  /* Typography */
+  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --font-mono: 'Courier New', Courier, monospace;
+
+  /* Font Sizes */
+  --text-display: 4rem;        /* 64px */
+  --text-section: 3.25rem;     /* 52px */
+  --text-subhead-lg: 2.3rem;   /* 36.8px */
+  --text-subhead: 2rem;        /* 32px */
+  --text-subhead-sm: 1.6rem;   /* 25.6px */
+  --text-feature: 1.3rem;      /* 20.8px */
+  --text-body-serif: 1.06rem;  /* 17px */
+  --text-body-lg: 1.25rem;     /* 20px */
+  --text-body: 1rem;           /* 16px */
+  --text-body-sm: 0.94rem;     /* 15px */
+  --text-caption: 0.88rem;     /* 14px */
+  --text-label: 0.75rem;       /* 12px */
+  --text-overline: 0.63rem;    /* 10px */
+  --text-micro: 0.6rem;        /* 9.6px */
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Border Radius */
+  --radius-sharp: 4px;
+  --radius-subtle: 6px;
+  --radius-comfortable: 8px;
+  --radius-generous: 12px;
+  --radius-very: 16px;
+  --radius-highly: 24px;
+  --radius-maximum: 32px;
+
+  /* Shadows */
+  --shadow-ring: 0px 0px 0px 1px;
+  --shadow-whisper: rgba(0, 0, 0, 0.05) 0px 4px 24px;
+  --shadow-inset: inset 0px 0px 0px 1px;
+}
+
+/* Global Resets */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.6;
+  color: var(--color-near-black);
+  background-color: var(--color-parchment);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography Utilities */
+.text-display {
+  font-family: var(--font-serif);
+  font-size: var(--text-display);
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.text-section {
+  font-family: var(--font-serif);
+  font-size: var(--text-section);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.text-subhead {
+  font-family: var(--font-serif);
+  font-size: var(--text-subhead);
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.text-subhead-sm {
+  font-family: var(--font-serif);
+  font-size: var(--text-subhead-sm);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.text-body-lg {
+  font-family: var(--font-sans);
+  font-size: var(--text-body-lg);
+  line-height: 1.6;
+}
+
+.text-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.6;
+}
+
+.text-caption {
+  font-family: var(--font-sans);
+  font-size: var(--text-caption);
+  line-height: 1.43;
+}
+
+/* Button Styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-comfortable);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background-color: var(--color-terracotta);
+  color: var(--color-ivory);
+  box-shadow: var(--shadow-ring) var(--color-terracotta);
+}
+
+.btn-primary:hover {
+  background-color: #b55a3a;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background-color: var(--color-warm-sand);
+  color: var(--color-charcoal-warm);
+  box-shadow: var(--shadow-ring) var(--color-ring-warm);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-border-warm);
+}
+
+.btn-white {
+  background-color: var(--color-white);
+  color: var(--color-near-black);
+  border-radius: var(--radius-generous);
+}
+
+.btn-white:hover {
+  background-color: var(--color-warm-sand);
+}
+
+.btn-dark {
+  background-color: var(--color-dark-surface);
+  color: var(--color-ivory);
+  box-shadow: var(--shadow-ring) var(--color-border-dark);
+}
+
+.btn-dark:hover {
+  background-color: var(--color-charcoal-warm);
+}
+
+/* Card Styles */
+.card {
+  background-color: var(--color-ivory);
+  border: 1px solid var(--color-border-cream);
+  border-radius: var(--radius-comfortable);
+  padding: var(--space-lg);
+  transition: all 0.2s ease;
+}
+
+.card-elevated {
+  box-shadow: var(--shadow-whisper);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-ring) var(--color-ring-warm), var(--shadow-whisper);
+}
+
+.card-dark {
+  background-color: var(--color-dark-surface);
+  border-color: var(--color-border-dark);
+  color: var(--color-ivory);
+}
+
+/* Container */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+}
+
+/* Utility Classes */
+.bg-parchment {
+  background-color: var(--color-parchment);
+}
+
+.bg-ivory {
+  background-color: var(--color-ivory);
+}
+
+.bg-dark {
+  background-color: var(--color-near-black);
+}
+
+.text-primary {
+  color: var(--color-near-black);
+}
+
+.text-secondary {
+  color: var(--color-olive-gray);
+}
+
+.text-tertiary {
+  color: var(--color-stone-gray);
+}
+
+.text-light {
+  color: var(--color-ivory);
+}

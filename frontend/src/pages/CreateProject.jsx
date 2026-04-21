@@ -135,25 +135,28 @@ const styles = {
     marginBottom: '40px'
   },
   title: {
-    fontSize: '42px',
-    fontWeight: 'bold',
+    fontSize: '52px', // Section Heading
+    fontWeight: '500',
+    fontFamily: 'Georgia, serif', // Anthropic Serif fallback
     marginBottom: '12px',
-    color: 'white',
-    textShadow: '0 2px 10px rgba(0, 0, 0, 0.2)'
+    color: '#141413', // Near Black
+    lineHeight: '1.2'
   },
   subtitle: {
-    fontSize: '18px',
-    color: 'rgba(255, 255, 255, 0.9)',
-    margin: 0
+    fontSize: '20px', // Body Large
+    color: '#5e5d59', // Olive Gray
+    margin: 0,
+    lineHeight: '1.6'
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
     gap: '24px',
-    backgroundColor: 'white',
+    backgroundColor: '#faf9f5', // Ivory
     padding: '40px',
-    borderRadius: '16px',
-    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)'
+    borderRadius: '16px', // Very rounded
+    border: '1px solid #f0eee6', // Border Cream
+    boxShadow: 'rgba(0, 0, 0, 0.05) 0px 4px 24px' // Whisper shadow
   },
   formGroup: {
     display: 'flex',
@@ -162,82 +165,89 @@ const styles = {
   },
   label: {
     fontSize: '16px',
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: '500',
+    color: '#141413', // Near Black
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif'
   },
   wordCount: {
     fontSize: '14px',
     fontWeight: 'normal',
-    color: '#888',
-    backgroundColor: '#f0f0f0',
+    color: '#87867f', // Stone Gray
+    backgroundColor: '#e8e6dc', // Warm Sand
     padding: '4px 12px',
     borderRadius: '12px'
   },
   input: {
-    padding: '14px 16px',
+    padding: '12px 16px',
     fontSize: '16px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '10px',
+    border: '1px solid #f0eee6', // Border Cream
+    borderRadius: '12px', // Generous
     outline: 'none',
-    transition: 'all 0.3s',
-    fontFamily: 'inherit'
+    transition: 'all 0.2s',
+    fontFamily: 'inherit',
+    backgroundColor: '#ffffff',
+    color: '#141413' // Near Black
   },
   select: {
-    padding: '14px 16px',
+    padding: '12px 16px',
     fontSize: '16px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '10px',
+    border: '1px solid #f0eee6', // Border Cream
+    borderRadius: '12px', // Generous
     outline: 'none',
-    backgroundColor: 'white',
+    backgroundColor: '#ffffff',
     cursor: 'pointer',
-    transition: 'all 0.3s'
+    transition: 'all 0.2s',
+    color: '#141413' // Near Black
   },
   textarea: {
-    padding: '14px 16px',
+    padding: '12px 16px',
     fontSize: '16px',
-    border: '2px solid #e0e0e0',
-    borderRadius: '10px',
+    border: '1px solid #f0eee6', // Border Cream
+    borderRadius: '12px', // Generous
     outline: 'none',
     resize: 'vertical',
     fontFamily: 'inherit',
     lineHeight: '1.6',
-    transition: 'all 0.3s'
+    transition: 'all 0.2s',
+    backgroundColor: '#ffffff',
+    color: '#141413' // Near Black
   },
   button: {
     padding: '16px 32px',
     fontSize: '18px',
-    fontWeight: '600',
-    color: 'white',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    fontWeight: '500',
+    color: '#faf9f5', // Ivory
+    backgroundColor: '#c96442', // Terracotta Brand
     border: 'none',
-    borderRadius: '10px',
+    borderRadius: '12px', // Generous
     cursor: 'pointer',
-    transition: 'all 0.3s',
-    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-    marginTop: '10px'
+    transition: 'all 0.2s',
+    boxShadow: '0px 0px 0px 1px #c96442', // Ring shadow
+    marginTop: '10px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif'
   },
   buttonDisabled: {
-    background: '#ccc',
+    backgroundColor: '#87867f', // Stone Gray
     cursor: 'not-allowed',
     boxShadow: 'none'
   },
   error: {
     padding: '14px 18px',
-    backgroundColor: '#fee',
-    color: '#c33',
-    borderRadius: '10px',
-    border: '2px solid #fcc',
+    backgroundColor: '#fee2e2',
+    color: '#b53333', // Error Crimson
+    borderRadius: '12px',
+    border: '1px solid #b53333',
     fontSize: '15px'
   },
   success: {
     textAlign: 'center',
     padding: '40px',
-    backgroundColor: '#efe',
-    borderRadius: '10px',
-    border: '2px solid #cfc'
+    backgroundColor: '#d1fae5',
+    borderRadius: '12px',
+    border: '1px solid #10b981'
   }
 }
 
