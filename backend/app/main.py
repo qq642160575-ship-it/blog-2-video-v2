@@ -12,7 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.api import projects, jobs, scenes, job_logs, assets, logs, timeline
+from app.api import projects, jobs, scenes, job_logs, assets, logs, timeline, stats
 from app.core.logging_config import get_logger
 
 app = FastAPI(title="Blog to Video API", version="1.0.0")
@@ -42,6 +42,7 @@ app.include_router(job_logs.router)
 app.include_router(assets.router)
 app.include_router(logs.router)
 app.include_router(timeline.router)
+app.include_router(stats.router)
 
 
 @app.middleware("http")

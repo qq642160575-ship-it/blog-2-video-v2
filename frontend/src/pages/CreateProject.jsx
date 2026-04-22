@@ -1,125 +1,173 @@
 /**
- * input: 依赖 React 状态、路由跳转和项目创建 API。
- * output: 向外提供项目创建页面。
- * pos: 位于前端页面层，负责文章输入入口。
- * 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。
+ * Editorial Studio - Create Project Page
+ * 优雅的项目创建界面，杂志编辑室美学
  */
 
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
-const API_BASE_URL = 'http://localhost:8000'
+const API_BASE = 'http://localhost:8000'
 
 function CreateProject() {
   const navigate = useNavigate()
-  const [formData, setFormData] = useState({
-    title: '',
-    content: '',
-    source_type: 'text'
-  })
+  const [articleContent, setArticleContent] = useState('')
+  const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [charCount, setCharCount] = useState(0)
+  const [focused, setFocused] = useState(false)
 
-  const wordCount = formData.content.length
+  const handleContentChange = (e) => {
+    const content = e.target.value
+    setArticleContent(content)
+    setCharCount(content.length)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
-    setError(null)
+
+    if (!articleContent.trim()) {
+      alert('请输入博文内容')
+      return
+    }
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/projects`, formData)
-      const projectId = response.data.project_id
-      console.log('Project created:', response.data)
+      setLoading(true)
+      const response = await axios.post(`${API_BASE}/projects`, {
+        title: title || '未命名项目',
+        content: articleContent,
+        source_type: 'text'
+      })
 
-      // Navigate to generation progress page
+      const projectId = response.data.project_id
       navigate(`/generate/${projectId}`)
-    } catch (err) {
-      setError(err.response?.data?.detail || '创建项目失败')
-      console.error('Error creating project:', err)
+    } catch (error) {
+      console.error('Failed to create project:', error)
+      alert('创建项目失败，请重试')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-  }
-
   return (
-    <div style={styles.container} className="fade-in">
-      <div style={styles.header}>
-        <h1 style={styles.title}>✨ 创建视频项目</h1>
-        <p style={styles.subtitle}>将您的博文转换为精美的视频内容</p>
+    <div style={styles.container}>
+      {/* Hero Section */}
+      <div style={styles.hero}>
+        <div style={styles.heroNumber}>01</div>
+        <h1 style={styles.heroTitle}>
+          Transform Your Words
+          <br />
+          Into Visual Stories
+        </h1>
+        <p style={styles.heroSubtitle}>
+          将博文转化为精美视频，让内容更具表现力
+        </p>
       </div>
 
+      {/* Main Form */}
       <form onSubmit={handleSubmit} style={styles.form}>
-        <div style={styles.formGroup}>
-          <label style={styles.label}>文章标题</label>
+        {/* Title Input */}
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>
+            <span style={styles.labelNumber}>1.1</span>
+            <span style={styles.labelText}>项目标题</span>
+            <span style={styles.labelOptional}>Optional</span>
+          </label>
           <input
             type="text"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-            required
-            style={styles.input}
-            placeholder="输入文章标题"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="为你的项目命名..."
+            style={styles.titleInput}
+            disabled={loading}
           />
         </div>
 
-        <div style={styles.formGroup}>
-          <label style={styles.label}>来源类型</label>
-          <select
-            name="source_type"
-            value={formData.source_type}
-            onChange={handleChange}
-            style={styles.select}
-          >
-            <option value="text">文本</option>
-            <option value="url">URL</option>
-          </select>
-        </div>
-
-        <div style={styles.formGroup}>
+        {/* Content Textarea */}
+        <div style={styles.inputGroup}>
           <label style={styles.label}>
-            文章内容
-            <span style={styles.wordCount}>
-              {wordCount} 字符
-            </span>
+            <span style={styles.labelNumber}>1.2</span>
+            <span style={styles.labelText}>博文内容</span>
+            <span style={styles.labelRequired}>Required</span>
           </label>
-          <textarea
-            name="content"
-            value={formData.content}
-            onChange={handleChange}
-            required
-            rows={15}
-            style={styles.textarea}
-            placeholder="输入或粘贴文章内容..."
-          />
+          <div style={{
+            ...styles.textareaWrapper,
+            borderColor: focused ? '#D4A574' : '#E8E6E0',
+            boxShadow: focused ? '0 0 0 3px rgba(212, 165, 116, 0.1)' : 'none'
+          }}>
+            <textarea
+              value={articleContent}
+              onChange={handleContentChange}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder="粘贴或输入你的博文内容...&#10;&#10;支持多段落文本，AI 将自动分析内容结构并生成相应的视频场景。"
+              style={styles.textarea}
+              disabled={loading}
+            />
+            <div style={styles.textareaFooter}>
+              <span style={styles.charCount}>
+                {charCount.toLocaleString()} 字符
+              </span>
+              <span style={styles.hint}>
+                建议 500-3000 字
+              </span>
+            </div>
+          </div>
         </div>
 
-        {error && (
-          <div style={styles.error}>
-            {error}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            ...styles.button,
-            ...(loading ? styles.buttonDisabled : {})
-          }}
-        >
-          {loading ? '创建中...' : '创建项目'}
-        </button>
+        {/* Submit Button */}
+        <div style={styles.submitSection}>
+          <button
+            type="submit"
+            disabled={loading || !articleContent.trim()}
+            style={{
+              ...styles.submitButton,
+              opacity: loading || !articleContent.trim() ? 0.5 : 1,
+              cursor: loading || !articleContent.trim() ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? (
+              <>
+                <span style={styles.spinner}>◌</span>
+                <span>AI 正在处理...</span>
+              </>
+            ) : (
+              <>
+                <span>开始创作</span>
+                <span style={styles.arrow}>→</span>
+              </>
+            )}
+          </button>
+          <p style={styles.submitHint}>
+            点击后，AI 将分析你的内容并开始生成视频
+          </p>
+        </div>
       </form>
+
+      {/* Features Grid */}
+      <div style={styles.features}>
+        <div style={styles.featureCard}>
+          <div style={styles.featureIcon}>🎬</div>
+          <h3 style={styles.featureTitle}>智能场景生成</h3>
+          <p style={styles.featureText}>
+            AI 自动分析文章结构，生成匹配的视频场景
+          </p>
+        </div>
+        <div style={styles.featureCard}>
+          <div style={styles.featureIcon}>🎨</div>
+          <h3 style={styles.featureTitle}>专业视觉设计</h3>
+          <p style={styles.featureText}>
+            精美的模板和动画效果，无需设计经验
+          </p>
+        </div>
+        <div style={styles.featureCard}>
+          <div style={styles.featureIcon}>⚡</div>
+          <h3 style={styles.featureTitle}>快速渲染</h3>
+          <p style={styles.featureText}>
+            高效的处理流程，几分钟内完成视频生成
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
@@ -128,127 +176,216 @@ const styles = {
   container: {
     maxWidth: '900px',
     margin: '0 auto',
-    padding: '40px 20px'
+    padding: '80px 40px 120px'
   },
-  header: {
-    textAlign: 'center',
-    marginBottom: '40px'
+
+  // Hero Section
+  hero: {
+    marginBottom: '80px',
+    position: 'relative'
   },
-  title: {
-    fontSize: '52px', // Section Heading
-    fontWeight: '500',
-    fontFamily: 'Georgia, serif', // Anthropic Serif fallback
-    marginBottom: '12px',
-    color: '#141413', // Near Black
-    lineHeight: '1.2'
+  heroNumber: {
+    fontSize: '120px',
+    fontWeight: '300',
+    color: '#F5F4F0',
+    lineHeight: 1,
+    marginBottom: '-40px',
+    fontFamily: 'Georgia, "Times New Roman", serif',
+    letterSpacing: '-0.02em'
   },
-  subtitle: {
-    fontSize: '20px', // Body Large
-    color: '#5e5d59', // Olive Gray
-    margin: 0,
-    lineHeight: '1.6'
+  heroTitle: {
+    fontSize: '56px',
+    fontWeight: '400',
+    fontFamily: 'Georgia, "Times New Roman", serif',
+    color: '#2C2416',
+    lineHeight: 1.2,
+    marginBottom: '24px',
+    letterSpacing: '-0.01em'
   },
+  heroSubtitle: {
+    fontSize: '18px',
+    color: '#6B6456',
+    lineHeight: 1.6,
+    fontWeight: '400',
+    maxWidth: '600px'
+  },
+
+  // Form
   form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '24px',
-    backgroundColor: '#faf9f5', // Ivory
-    padding: '40px',
-    borderRadius: '16px', // Very rounded
-    border: '1px solid #f0eee6', // Border Cream
-    boxShadow: 'rgba(0, 0, 0, 0.05) 0px 4px 24px' // Whisper shadow
+    marginBottom: '100px'
   },
-  formGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px'
+  inputGroup: {
+    marginBottom: '48px'
   },
   label: {
-    fontSize: '16px',
-    fontWeight: '500',
-    color: '#141413', // Near Black
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif'
+    alignItems: 'baseline',
+    gap: '12px',
+    marginBottom: '16px'
   },
-  wordCount: {
+  labelNumber: {
     fontSize: '14px',
-    fontWeight: 'normal',
-    color: '#87867f', // Stone Gray
-    backgroundColor: '#e8e6dc', // Warm Sand
-    padding: '4px 12px',
-    borderRadius: '12px'
+    fontWeight: '600',
+    color: '#D4A574',
+    fontFamily: 'Georgia, serif'
   },
-  input: {
-    padding: '12px 16px',
+  labelText: {
     fontSize: '16px',
-    border: '1px solid #f0eee6', // Border Cream
-    borderRadius: '12px', // Generous
-    outline: 'none',
-    transition: 'all 0.2s',
+    fontWeight: '600',
+    color: '#2C2416',
+    letterSpacing: '0.01em'
+  },
+  labelOptional: {
+    fontSize: '13px',
+    color: '#9B9388',
+    fontStyle: 'italic',
+    marginLeft: 'auto'
+  },
+  labelRequired: {
+    fontSize: '13px',
+    color: '#D4A574',
+    fontWeight: '600',
+    marginLeft: 'auto'
+  },
+
+  // Title Input
+  titleInput: {
+    width: '100%',
+    padding: '16px 20px',
+    fontSize: '18px',
     fontFamily: 'inherit',
-    backgroundColor: '#ffffff',
-    color: '#141413' // Near Black
-  },
-  select: {
-    padding: '12px 16px',
-    fontSize: '16px',
-    border: '1px solid #f0eee6', // Border Cream
-    borderRadius: '12px', // Generous
+    color: '#2C2416',
+    backgroundColor: '#FFFFFF',
+    border: '2px solid #E8E6E0',
+    borderRadius: '12px',
     outline: 'none',
-    backgroundColor: '#ffffff',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    color: '#141413' // Near Black
+    transition: 'all 0.3s ease',
+    boxSizing: 'border-box'
+  },
+
+  // Textarea
+  textareaWrapper: {
+    backgroundColor: '#FFFFFF',
+    border: '2px solid #E8E6E0',
+    borderRadius: '12px',
+    transition: 'all 0.3s ease',
+    overflow: 'hidden'
   },
   textarea: {
-    padding: '12px 16px',
+    width: '100%',
+    minHeight: '320px',
+    padding: '24px',
     fontSize: '16px',
-    border: '1px solid #f0eee6', // Border Cream
-    borderRadius: '12px', // Generous
+    fontFamily: 'inherit',
+    color: '#2C2416',
+    backgroundColor: 'transparent',
+    border: 'none',
     outline: 'none',
     resize: 'vertical',
-    fontFamily: 'inherit',
-    lineHeight: '1.6',
-    transition: 'all 0.2s',
-    backgroundColor: '#ffffff',
-    color: '#141413' // Near Black
+    lineHeight: 1.8,
+    boxSizing: 'border-box'
   },
-  button: {
-    padding: '16px 32px',
+  textareaFooter: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '12px 24px',
+    backgroundColor: '#FAF9F6',
+    borderTop: '1px solid #E8E6E0'
+  },
+  charCount: {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#2C2416'
+  },
+  hint: {
+    fontSize: '13px',
+    color: '#9B9388'
+  },
+
+  // Submit Section
+  submitSection: {
+    marginTop: '60px',
+    textAlign: 'center'
+  },
+  submitButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '20px 48px',
     fontSize: '18px',
-    fontWeight: '500',
-    color: '#faf9f5', // Ivory
-    backgroundColor: '#c96442', // Terracotta Brand
+    fontWeight: '600',
+    color: '#FFFFFF',
+    backgroundColor: '#2C2416',
     border: 'none',
-    borderRadius: '12px', // Generous
+    borderRadius: '12px',
     cursor: 'pointer',
-    transition: 'all 0.2s',
-    boxShadow: '0px 0px 0px 1px #c96442', // Ring shadow
-    marginTop: '10px',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif'
+    transition: 'all 0.3s ease',
+    boxShadow: '0 4px 16px rgba(44, 36, 22, 0.2)',
+    letterSpacing: '0.01em'
   },
-  buttonDisabled: {
-    backgroundColor: '#87867f', // Stone Gray
-    cursor: 'not-allowed',
-    boxShadow: 'none'
+  spinner: {
+    display: 'inline-block',
+    animation: 'spin 1s linear infinite',
+    fontSize: '20px'
   },
-  error: {
-    padding: '14px 18px',
-    backgroundColor: '#fee2e2',
-    color: '#b53333', // Error Crimson
-    borderRadius: '12px',
-    border: '1px solid #b53333',
-    fontSize: '15px'
+  arrow: {
+    fontSize: '20px',
+    transition: 'transform 0.3s ease'
   },
-  success: {
-    textAlign: 'center',
-    padding: '40px',
-    backgroundColor: '#d1fae5',
-    borderRadius: '12px',
-    border: '1px solid #10b981'
+  submitHint: {
+    marginTop: '16px',
+    fontSize: '14px',
+    color: '#9B9388',
+    fontStyle: 'italic'
+  },
+
+  // Features
+  features: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '32px',
+    paddingTop: '60px',
+    borderTop: '1px solid #E8E6E0'
+  },
+  featureCard: {
+    textAlign: 'center'
+  },
+  featureIcon: {
+    fontSize: '48px',
+    marginBottom: '20px'
+  },
+  featureTitle: {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#2C2416',
+    marginBottom: '12px',
+    fontFamily: 'Georgia, serif'
+  },
+  featureText: {
+    fontSize: '14px',
+    color: '#6B6456',
+    lineHeight: 1.6
   }
+}
+
+// Add keyframe animation
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style')
+  styleSheet.textContent = `
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    button:hover .arrow {
+      transform: translateX(4px);
+    }
+
+    input:focus, textarea:focus {
+      border-color: #D4A574 !important;
+    }
+  `
+  document.head.appendChild(styleSheet)
 }
 
 export default CreateProject

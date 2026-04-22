@@ -50,7 +50,6 @@ function Result() {
   const handleRerender = async () => {
     try {
       await axios.post(`${API_BASE_URL}/projects/${projectId}/jobs/rerender`)
-      // Navigate to progress page
       navigate(`/generate/${projectId}`)
     } catch (err) {
       alert('触发重渲染失败: ' + (err.response?.data?.detail || err.message))
@@ -60,7 +59,10 @@ function Result() {
   if (loading) {
     return (
       <div style={styles.container}>
-        <div style={styles.loading}>加载中...</div>
+        <div style={styles.loadingBox}>
+          <div style={styles.loadingSpinner}></div>
+          <div style={styles.loadingText}>加载中...</div>
+        </div>
       </div>
     )
   }
@@ -68,10 +70,10 @@ function Result() {
   if (error) {
     return (
       <div style={styles.container}>
-        <div style={styles.error}>
-          <h2>加载失败</h2>
-          <p>{error}</p>
-          <button onClick={() => navigate('/')} style={styles.button}>
+        <div style={styles.errorBox}>
+          <div style={styles.errorTitle}>加载失败</div>
+          <div style={styles.errorMessage}>{error}</div>
+          <button onClick={() => navigate('/')} style={styles.primaryButton}>
             返回首页
           </button>
         </div>
@@ -80,96 +82,128 @@ function Result() {
   }
 
   return (
-    <div style={styles.container} className="fade-in">
-      <div style={styles.header}>
-        <h1 style={styles.title}>🎉 视频预览</h1>
-        <p style={styles.subtitle}>您的视频已生成完成</p>
+    <div style={styles.container}>
+      {/* Hero Section */}
+      <div style={styles.hero}>
+        <div style={styles.heroNumber}>03</div>
+        <h1 style={styles.heroTitle}>
+          Your Visual Story<br />Is Ready
+        </h1>
+        <div style={styles.heroSubtitle}>视频已生成完成</div>
       </div>
 
-      {/* Video Player */}
+      {/* Video Player Section */}
       <div style={styles.videoSection}>
-        {videoUrl ? (
-          <video
-            controls
-            style={styles.video}
-            src={`${API_BASE_URL}${videoUrl}`}
-          >
-            您的浏览器不支持视频播放
-          </video>
-        ) : (
-          <div style={styles.noVideo}>视频未生成</div>
-        )}
+        <div style={styles.sectionLabel}>
+          <span style={styles.labelNumber}>3.1</span>
+          <span style={styles.labelText}>视频预览</span>
+        </div>
+
+        <div style={styles.videoContainer}>
+          {videoUrl ? (
+            <video
+              controls
+              style={styles.video}
+              src={`${API_BASE_URL}${videoUrl}`}
+            >
+              您的浏览器不支持视频播放
+            </video>
+          ) : (
+            <div style={styles.noVideo}>视频未生成</div>
+          )}
+        </div>
       </div>
 
       {/* Actions */}
       <div style={styles.actions}>
-        <button onClick={handleRerender} style={styles.button}>
+        <button onClick={handleRerender} style={styles.primaryButton}>
           重新渲染
         </button>
-        <button onClick={() => navigate('/')} style={styles.buttonSecondary}>
+        <button onClick={() => navigate('/')} style={styles.secondaryButton}>
           创建新项目
         </button>
       </div>
 
-      {/* Scenes List */}
-      <div style={styles.scenesSection}>
-        <h2 style={styles.sectionTitle}>场景列表 ({scenes.length})</h2>
+      {/* Scenes Section */}
+      {scenes.length > 0 && (
+        <div style={styles.scenesSection}>
+          <div style={styles.sectionLabel}>
+            <span style={styles.labelNumber}>3.2</span>
+            <span style={styles.labelText}>场景详情</span>
+            <span style={styles.sceneCount}>({scenes.length})</span>
+          </div>
 
-        {scenes.length === 0 ? (
-          <div style={styles.noScenes}>暂无场景</div>
-        ) : (
           <div style={styles.scenesList}>
             {scenes.map((scene, index) => (
-              <div key={scene.scene_id} style={styles.sceneCard}>
-                <div style={styles.sceneHeader}>
-                  <span style={styles.sceneNumber}>场景 {index + 1}</span>
-                  <div style={styles.sceneHeaderRight}>
-                    <span style={styles.sceneVersion}>v{scene.version}</span>
-                    <button
-                      onClick={() => navigate(`/edit-scene/${scene.scene_id}`)}
-                      style={styles.editButton}
-                    >
-                      编辑场景
-                    </button>
-                    <button
-                      onClick={() => navigate(`/timeline-editor/${scene.scene_id}`)}
-                      style={styles.timelineButton}
-                    >
-                      ⏱️ 时间轴
-                    </button>
-                  </div>
-                </div>
-
-                <div style={styles.sceneInfo}>
-                  <div style={styles.sceneRow}>
-                    <span style={styles.sceneLabel}>模板:</span>
-                    <span>{scene.template_type}</span>
-                  </div>
-                  <div style={styles.sceneRow}>
-                    <span style={styles.sceneLabel}>时长:</span>
-                    <span>{scene.duration_sec}秒</span>
-                  </div>
-                </div>
-
-                <div style={styles.sceneVoiceover}>
-                  <div style={styles.sceneLabel}>旁白:</div>
-                  <div style={styles.voiceoverText}>{scene.voiceover}</div>
-                </div>
-
-                {scene.screen_text && scene.screen_text.length > 0 && (
-                  <div style={styles.sceneScreenText}>
-                    <div style={styles.sceneLabel}>屏幕文本:</div>
-                    <div style={styles.screenTextList}>
-                      {scene.screen_text.map((text, i) => (
-                        <div key={i} style={styles.screenTextItem}>
-                          {text}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <SceneCard
+                key={scene.scene_id}
+                scene={scene}
+                index={index}
+                navigate={navigate}
+              />
             ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Scene Card Component
+function SceneCard({ scene, index, navigate }) {
+  return (
+    <div style={styles.sceneCard}>
+      <div style={styles.sceneCardHeader}>
+        <div style={styles.sceneCardLeft}>
+          <div style={styles.sceneIndexNumber}>{String(index + 1).padStart(2, '0')}</div>
+          <div>
+            <div style={styles.sceneTitle}>场景 {index + 1}</div>
+            <div style={styles.sceneVersion}>版本 {scene.version}</div>
+          </div>
+        </div>
+        <div style={styles.sceneCardActions}>
+          <button
+            onClick={() => navigate(`/edit-scene/${scene.scene_id}`)}
+            style={styles.sceneButton}
+          >
+            编辑场景
+          </button>
+          <button
+            onClick={() => navigate(`/timeline-editor/${scene.scene_id}`)}
+            style={styles.sceneButton}
+          >
+            时间轴
+          </button>
+        </div>
+      </div>
+
+      <div style={styles.sceneCardBody}>
+        <div style={styles.sceneMetaRow}>
+          <div style={styles.sceneMeta}>
+            <span style={styles.sceneMetaLabel}>模板</span>
+            <span style={styles.sceneMetaValue}>{scene.template_type}</span>
+          </div>
+          <div style={styles.sceneMeta}>
+            <span style={styles.sceneMetaLabel}>时长</span>
+            <span style={styles.sceneMetaValue}>{scene.duration_sec}秒</span>
+          </div>
+        </div>
+
+        <div style={styles.sceneVoiceover}>
+          <div style={styles.sceneContentLabel}>旁白</div>
+          <div style={styles.voiceoverText}>{scene.voiceover}</div>
+        </div>
+
+        {scene.screen_text && scene.screen_text.length > 0 && (
+          <div style={styles.sceneScreenText}>
+            <div style={styles.sceneContentLabel}>屏幕文本</div>
+            <div style={styles.screenTextList}>
+              {scene.screen_text.map((text, i) => (
+                <div key={i} style={styles.screenTextTag}>
+                  {text}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -179,207 +213,302 @@ function Result() {
 
 const styles = {
   container: {
-    maxWidth: '1100px',
+    maxWidth: '900px',
     margin: '0 auto',
-    padding: '40px 20px'
+    padding: '60px 24px 100px',
+    backgroundColor: '#FAF9F6',
+    minHeight: '100vh'
   },
-  header: {
+
+  // Hero Section
+  hero: {
     textAlign: 'center',
-    marginBottom: '40px'
+    marginBottom: '80px',
+    position: 'relative'
   },
-  title: {
-    fontSize: '42px',
-    fontWeight: 'bold',
+  heroNumber: {
+    fontSize: '180px',
+    fontWeight: '300',
+    color: '#E8E6E0',
+    lineHeight: '1',
+    marginBottom: '-40px',
+    fontFamily: 'Georgia, "Times New Roman", serif',
+    userSelect: 'none'
+  },
+  heroTitle: {
+    fontSize: '56px',
+    fontWeight: '300',
+    color: '#2C2416',
+    lineHeight: '1.2',
+    marginBottom: '16px',
+    fontFamily: 'Georgia, "Times New Roman", serif',
+    letterSpacing: '-0.02em'
+  },
+  heroSubtitle: {
+    fontSize: '14px',
+    color: '#8B7355',
+    textTransform: 'uppercase',
+    letterSpacing: '0.15em',
+    fontWeight: '500'
+  },
+
+  // Loading & Error States
+  loadingBox: {
+    textAlign: 'center',
+    padding: '100px 20px'
+  },
+  loadingSpinner: {
+    width: '40px',
+    height: '40px',
+    border: '3px solid #E8E6E0',
+    borderTop: '3px solid #D4A574',
+    borderRadius: '50%',
+    margin: '0 auto 20px',
+    animation: 'spin 1s linear infinite'
+  },
+  loadingText: {
+    fontSize: '16px',
+    color: '#8B7355',
+    letterSpacing: '0.05em'
+  },
+  errorBox: {
+    textAlign: 'center',
+    padding: '60px 40px',
+    backgroundColor: '#FFFFFF',
+    border: '1px solid #E8E6E0',
+    maxWidth: '500px',
+    margin: '100px auto'
+  },
+  errorTitle: {
+    fontSize: '24px',
+    fontWeight: '300',
+    color: '#2C2416',
     marginBottom: '12px',
-    color: 'white',
-    textShadow: '0 2px 10px rgba(0, 0, 0, 0.2)'
+    fontFamily: 'Georgia, "Times New Roman", serif'
   },
-  subtitle: {
-    fontSize: '18px',
-    color: 'rgba(255, 255, 255, 0.9)',
-    margin: 0
+  errorMessage: {
+    fontSize: '15px',
+    color: '#8B7355',
+    marginBottom: '32px',
+    lineHeight: '1.6'
   },
-  loading: {
-    textAlign: 'center',
-    fontSize: '20px',
-    color: 'white',
-    padding: '80px 20px'
+
+  // Section Labels
+  sectionLabel: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '12px',
+    marginBottom: '24px'
   },
-  error: {
-    textAlign: 'center',
-    padding: '50px',
-    backgroundColor: 'white',
-    borderRadius: '16px',
-    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)'
+  labelNumber: {
+    fontSize: '13px',
+    color: '#D4A574',
+    fontWeight: '600',
+    letterSpacing: '0.05em'
   },
+  labelText: {
+    fontSize: '13px',
+    color: '#2C2416',
+    textTransform: 'uppercase',
+    letterSpacing: '0.15em',
+    fontWeight: '500'
+  },
+  sceneCount: {
+    fontSize: '13px',
+    color: '#8B7355',
+    marginLeft: '4px'
+  },
+
+  // Video Section
   videoSection: {
-    marginBottom: '40px',
-    backgroundColor: '#000',
-    borderRadius: '16px',
+    marginBottom: '60px'
+  },
+  videoContainer: {
+    backgroundColor: '#000000',
+    border: '1px solid #E8E6E0',
     overflow: 'hidden',
-    boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
+    position: 'relative'
   },
   video: {
     width: '100%',
-    maxHeight: '600px',
-    display: 'block'
+    display: 'block',
+    maxHeight: '600px'
   },
   noVideo: {
-    padding: '80px 20px',
+    padding: '100px 20px',
     textAlign: 'center',
-    color: '#999',
-    fontSize: '18px'
+    color: '#8B7355',
+    fontSize: '15px',
+    letterSpacing: '0.05em'
   },
+
+  // Actions
   actions: {
     display: 'flex',
-    gap: '20px',
+    gap: '16px',
     justifyContent: 'center',
-    marginBottom: '50px'
+    marginBottom: '80px'
   },
-  button: {
-    padding: '14px 32px',
-    fontSize: '17px',
-    fontWeight: '600',
-    color: 'white',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  primaryButton: {
+    padding: '16px 40px',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#FFFFFF',
+    backgroundColor: '#2C2416',
     border: 'none',
-    borderRadius: '10px',
     cursor: 'pointer',
-    transition: 'all 0.3s',
-    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
+    transition: 'all 0.3s ease',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em'
   },
-  buttonSecondary: {
-    padding: '14px 32px',
-    fontSize: '17px',
-    fontWeight: '600',
-    color: '#666',
-    backgroundColor: 'white',
-    border: '2px solid #e0e0e0',
-    borderRadius: '10px',
+  secondaryButton: {
+    padding: '16px 40px',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#2C2416',
+    backgroundColor: 'transparent',
+    border: '1px solid #2C2416',
     cursor: 'pointer',
-    transition: 'all 0.3s'
+    transition: 'all 0.3s ease',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em'
   },
+
+  // Scenes Section
   scenesSection: {
-    marginTop: '50px'
-  },
-  sectionTitle: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    marginBottom: '30px',
-    color: 'white',
-    textAlign: 'center'
-  },
-  noScenes: {
-    textAlign: 'center',
-    padding: '50px',
-    color: '#999',
-    backgroundColor: 'white',
-    borderRadius: '16px',
-    fontSize: '16px'
+    marginTop: '80px'
   },
   scenesList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '24px'
+    gap: '32px'
   },
+
+  // Scene Card
   sceneCard: {
-    backgroundColor: 'white',
-    border: 'none',
-    borderRadius: '16px',
-    padding: '30px',
-    transition: 'all 0.3s',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+    backgroundColor: '#FFFFFF',
+    border: '1px solid #E8E6E0',
+    padding: '40px',
+    transition: 'all 0.3s ease'
   },
-  sceneHeader: {
+  sceneCardHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '20px',
-    paddingBottom: '15px',
-    borderBottom: '2px solid #f0f0f0'
+    marginBottom: '32px',
+    paddingBottom: '24px',
+    borderBottom: '1px solid #E8E6E0'
   },
-  sceneNumber: {
-    fontSize: '20px',
-    fontWeight: '600',
-    color: '#333'
-  },
-  sceneHeaderRight: {
+  sceneCardLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px'
+    gap: '20px'
+  },
+  sceneIndexNumber: {
+    fontSize: '48px',
+    fontWeight: '300',
+    color: '#D4A574',
+    fontFamily: 'Georgia, "Times New Roman", serif',
+    lineHeight: '1'
+  },
+  sceneTitle: {
+    fontSize: '18px',
+    fontWeight: '300',
+    color: '#2C2416',
+    marginBottom: '4px',
+    fontFamily: 'Georgia, "Times New Roman", serif'
   },
   sceneVersion: {
-    fontSize: '14px',
-    color: '#666',
-    backgroundColor: '#f0f0f0',
-    padding: '6px 12px',
-    borderRadius: '6px',
+    fontSize: '12px',
+    color: '#8B7355',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em'
+  },
+  sceneCardActions: {
+    display: 'flex',
+    gap: '12px'
+  },
+  sceneButton: {
+    padding: '10px 20px',
+    fontSize: '12px',
+    fontWeight: '500',
+    color: '#2C2416',
+    backgroundColor: 'transparent',
+    border: '1px solid #E8E6E0',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em'
+  },
+
+  // Scene Card Body
+  sceneCardBody: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '28px'
+  },
+  sceneMetaRow: {
+    display: 'flex',
+    gap: '40px'
+  },
+  sceneMeta: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px'
+  },
+  sceneMetaLabel: {
+    fontSize: '11px',
+    color: '#8B7355',
+    textTransform: 'uppercase',
+    letterSpacing: '0.15em',
     fontWeight: '500'
   },
-  editButton: {
-    padding: '8px 16px',
-    fontSize: '14px',
-    fontWeight: '600',
-    color: 'white',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'all 0.3s'
+  sceneMetaValue: {
+    fontSize: '15px',
+    color: '#2C2416',
+    fontWeight: '400'
   },
-  timelineButton: {
-    padding: '8px 16px',
-    fontSize: '14px',
-    fontWeight: '600',
-    color: 'white',
-    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'all 0.3s'
-  },
-  sceneInfo: {
-    display: 'flex',
-    gap: '30px',
-    marginBottom: '20px'
-  },
-  sceneRow: {
-    display: 'flex',
-    gap: '10px',
-    fontSize: '15px'
-  },
-  sceneLabel: {
-    fontWeight: '600',
-    color: '#666'
-  },
+
+  // Scene Content
   sceneVoiceover: {
-    marginBottom: '20px'
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px'
+  },
+  sceneContentLabel: {
+    fontSize: '11px',
+    color: '#8B7355',
+    textTransform: 'uppercase',
+    letterSpacing: '0.15em',
+    fontWeight: '500'
   },
   voiceoverText: {
-    marginTop: '10px',
-    padding: '16px',
-    backgroundColor: '#f8f9fa',
-    borderRadius: '10px',
     fontSize: '15px',
-    lineHeight: '1.7',
-    color: '#333'
+    lineHeight: '1.8',
+    color: '#2C2416',
+    padding: '20px',
+    backgroundColor: '#FAF9F6',
+    border: '1px solid #E8E6E0'
   },
+
+  // Screen Text
   sceneScreenText: {
-    marginTop: '20px'
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px'
   },
   screenTextList: {
-    marginTop: '10px',
     display: 'flex',
     flexWrap: 'wrap',
     gap: '10px'
   },
-  screenTextItem: {
+  screenTextTag: {
     padding: '8px 16px',
-    backgroundColor: '#e3f2fd',
-    borderRadius: '8px',
-    fontSize: '14px',
-    color: '#1976d2',
-    fontWeight: '500'
+    fontSize: '13px',
+    color: '#2C2416',
+    backgroundColor: '#FAF9F6',
+    border: '1px solid #E8E6E0',
+    fontWeight: '400'
   }
 }
 

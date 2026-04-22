@@ -61,13 +61,11 @@ const styles = {
     minHeight: '100vh',
     display: 'flex',
     flexDirection: 'column',
-    backgroundColor: '#f5f4ed' // Parchment
+    backgroundColor: '#FAF9F6'
   },
   nav: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    backdropFilter: 'blur(10px)',
-    borderBottom: '1px solid #f0eee6', // Border Cream
-    boxShadow: 'rgba(0, 0, 0, 0.05) 0px 4px 24px', // Whisper shadow
+    backgroundColor: '#FFFFFF',
+    borderBottom: '1px solid #E8E6E0',
     position: 'sticky',
     top: 0,
     zIndex: 1000
@@ -75,10 +73,11 @@ const styles = {
   navContainer: {
     maxWidth: '1200px',
     margin: '0 auto',
-    padding: '0 20px',
+    padding: '0 24px',
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    height: '72px'
   },
   navLink: {
     textDecoration: 'none',
@@ -87,68 +86,65 @@ const styles = {
   logo: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px'
+    gap: '16px'
   },
   logoIcon: {
-    fontSize: '32px'
+    fontSize: '28px',
+    lineHeight: '1'
   },
   navTitle: {
     margin: '0',
-    padding: '20px 0',
-    fontSize: '25.6px', // Subhead Small
-    fontWeight: '500',
-    fontFamily: 'Georgia, serif', // Anthropic Serif fallback
-    color: '#141413', // Near Black
-    lineHeight: '1.2'
+    fontSize: '18px',
+    fontWeight: '300',
+    fontFamily: 'Georgia, "Times New Roman", serif',
+    color: '#2C2416',
+    letterSpacing: '-0.01em'
   },
   navRight: {
     display: 'flex',
     alignItems: 'center',
-    gap: '16px'
+    gap: '20px'
   },
   adminLink: {
     textDecoration: 'none'
   },
   adminButton: {
-    padding: '8px 16px',
-    backgroundColor: '#e8e6dc', // Warm Sand
-    color: '#4d4c48', // Charcoal Warm
-    borderRadius: '8px', // Comfortable
-    fontSize: '14px',
+    padding: '10px 20px',
+    backgroundColor: 'transparent',
+    color: '#2C2416',
+    border: '1px solid #E8E6E0',
+    fontSize: '12px',
     fontWeight: '500',
     cursor: 'pointer',
-    transition: 'all 0.2s',
-    border: 'none',
-    boxShadow: '0px 0px 0px 1px #d1cfc5' // Ring shadow
+    transition: 'all 0.3s ease',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em'
   },
   badge: {
-    padding: '6px 12px',
-    backgroundColor: '#c96442', // Terracotta Brand
-    color: '#faf9f5', // Ivory
-    borderRadius: '20px',
-    fontSize: '12px',
+    padding: '6px 14px',
+    backgroundColor: '#2C2416',
+    color: '#FAF9F6',
+    fontSize: '10px',
     fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: '0.5px'
+    letterSpacing: '0.12em'
   },
   main: {
     flex: 1,
-    padding: '40px 20px',
-    maxWidth: '1200px',
-    width: '100%',
-    margin: '0 auto'
+    padding: '0',
+    width: '100%'
   },
   footer: {
-    backgroundColor: '#30302e', // Dark Surface
-    backdropFilter: 'blur(10px)',
-    padding: '20px',
+    backgroundColor: '#2C2416',
+    padding: '32px 24px',
     textAlign: 'center',
-    borderTop: '1px solid #30302e'
+    borderTop: '1px solid #2C2416'
   },
   footerText: {
-    color: '#b0aea5', // Warm Silver
-    fontSize: '14px',
-    margin: 0
+    color: '#8B7355',
+    fontSize: '12px',
+    margin: 0,
+    letterSpacing: '0.05em'
   }
 }
 

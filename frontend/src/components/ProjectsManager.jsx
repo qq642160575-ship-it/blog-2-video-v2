@@ -1,13 +1,12 @@
 /**
- * input: 依赖 React 和后端项目 API。
- * output: 向外提供项目列表管理功能。
- * pos: 位于组件层，负责项目的查询、删除和详情查看。
- * 声明: 一旦我被更新，务必更新我的开头注释，以及所属文件夹的 README.md。
+ * Editorial Studio - Projects Manager
+ * 项目管理组件 - Editorial Studio 美学
  */
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { formatLocalTime } from '../utils/dateUtils'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -25,9 +24,8 @@ function ProjectsManager() {
   const loadProjects = async () => {
     try {
       setLoading(true)
-      // 注意：需要后端添加获取所有项目的 API
-      // 暂时使用空数组
-      setProjects([])
+      const response = await axios.get(`${API_BASE}/projects`)
+      setProjects(response.data)
     } catch (error) {
       console.error('Failed to load projects:', error)
     } finally {
@@ -64,93 +62,76 @@ function ProjectsManager() {
   )
 
   if (loading) {
-    return <div style={styles.loading}>加载中...</div>
+    return (
+      <div style={styles.loading}>
+        <div style={styles.loadingSpinner}></div>
+        <div style={styles.loadingText}>加载中...</div>
+      </div>
+    )
   }
 
   return (
     <div style={styles.container}>
-      <div style={styles.header}>
-        <input
-          type="text"
-          placeholder="搜索项目 ID 或标题..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={styles.searchInput}
-        />
+      {/* 搜索和操作栏 */}
+      <div style={styles.toolbar}>
+        <div style={styles.searchWrapper}>
+          <input
+            type="text"
+            placeholder="搜索项目 ID 或标题..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={styles.searchInput}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              style={styles.clearButton}
+            >
+              ✕
+            </button>
+          )}
+        </div>
         <button onClick={loadProjects} style={styles.refreshButton}>
-          🔄 刷新
+          刷新
         </button>
       </div>
 
-      {filteredProjects.length === 0 ? (
-        <div style={styles.empty}>
-          <p>暂无项目数据</p>
-          <p style={styles.emptyHint}>创建新项目后将在这里显示</p>
-        </div>
-      ) : (
-        <div style={styles.tableContainer}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>项目 ID</th>
-                <th style={styles.th}>标题</th>
-                <th style={styles.th}>状态</th>
-                <th style={styles.th}>创建时间</th>
-                <th style={styles.th}>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProjects.map(project => (
-                <tr key={project.id} style={styles.tr}>
-                  <td style={styles.td}>
-                    <code style={styles.code}>{project.id}</code>
-                  </td>
-                  <td style={styles.td}>{project.title || '-'}</td>
-                  <td style={styles.td}>
-                    <span style={getStatusStyle(project.status)}>
-                      {project.status}
-                    </span>
-                  </td>
-                  <td style={styles.td}>
-                    {new Date(project.created_at).toLocaleString('zh-CN')}
-                  </td>
-                  <td style={styles.td}>
-                    <div style={styles.actionButtons}>
-                      <button
-                        onClick={() => navigate(`/result/${project.id}`)}
-                        style={styles.primaryButton}
-                        title="查看结果页面"
-                      >
-                        📺 结果
-                      </button>
-                      <button
-                        onClick={() => navigate(`/generate/${project.id}`)}
-                        style={styles.secondaryButton}
-                        title="查看生成进度"
-                      >
-                        ⚙️ 进度
-                      </button>
-                      <button
-                        onClick={() => viewProject(project.id)}
-                        style={styles.actionButton}
-                      >
-                        查看
-                      </button>
-                      <button
-                        onClick={() => deleteProject(project.id)}
-                        style={{...styles.actionButton, ...styles.deleteButton}}
-                      >
-                        删除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* 结果统计 */}
+      {projects.length > 0 && (
+        <div style={styles.resultStats}>
+          <span style={styles.resultCount}>{filteredProjects.length}</span>
+          <span style={styles.resultSeparator}>/</span>
+          <span style={styles.resultTotal}>{projects.length}</span>
+          <span style={styles.resultLabel}>项目</span>
         </div>
       )}
 
+      {/* 项目列表 */}
+      {filteredProjects.length === 0 ? (
+        <div style={styles.empty}>
+          <div style={styles.emptyTitle}>
+            {searchTerm ? '未找到匹配项目' : '暂无项目'}
+          </div>
+          <div style={styles.emptySubtitle}>
+            {searchTerm ? '尝试使用其他关键词搜索' : '创建新项目后将在这里显示'}
+          </div>
+        </div>
+      ) : (
+        <div style={styles.projectsGrid}>
+          {filteredProjects.map((project, index) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              index={index}
+              onView={viewProject}
+              onDelete={deleteProject}
+              navigate={navigate}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* 项目详情模态框 */}
       {selectedProject && (
         <ProjectDetailModal
           project={selectedProject}
@@ -161,6 +142,104 @@ function ProjectsManager() {
   )
 }
 
+// 项目卡片组件
+function ProjectCard({ project, index, onView, onDelete, navigate }) {
+  const [isHovered, setIsHovered] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setTimeout(() => setMounted(true), index * 50)
+  }, [index])
+
+  const getStatusConfig = (status) => {
+    const configs = {
+      completed: { label: 'Completed', color: '#2C2416' },
+      running: { label: 'Running', color: '#D4A574' },
+      failed: { label: 'Failed', color: '#C89564' },
+      draft: { label: 'Draft', color: '#8B7355' }
+    }
+    return configs[status] || { label: status, color: '#8B7355' }
+  }
+
+  const statusConfig = getStatusConfig(project.status)
+
+  return (
+    <div
+      style={{
+        ...styles.projectCard,
+        opacity: mounted ? 1 : 0,
+        transform: mounted
+          ? isHovered ? 'translateY(-4px)' : 'translateY(0)'
+          : 'translateY(20px)',
+        borderColor: isHovered ? statusConfig.color : '#E8E6E0'
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* 卡片头部 */}
+      <div style={styles.cardHeader}>
+        <div style={styles.cardId}>
+          <span style={styles.cardIdLabel}>ID</span>
+          <code style={styles.cardIdValue}>{project.id}</code>
+        </div>
+        <div style={{
+          ...styles.statusBadge,
+          backgroundColor: `${statusConfig.color}15`,
+          color: statusConfig.color,
+          borderColor: statusConfig.color
+        }}>
+          {statusConfig.label}
+        </div>
+      </div>
+
+      {/* 项目标题 */}
+      <h3 style={styles.cardTitle}>{project.title || '未命名项目'}</h3>
+
+      {/* 时间信息 */}
+      <div style={styles.cardMeta}>
+        <span style={styles.metaLabel}>创建时间</span>
+        <span style={styles.metaValue}>{formatLocalTime(project.created_at)}</span>
+      </div>
+
+      {/* 操作按钮 */}
+      <div style={styles.cardActions}>
+        <button
+          onClick={() => navigate(`/result/${project.id}`)}
+          style={styles.actionButtonPrimary}
+        >
+          查看结果
+        </button>
+        <button
+          onClick={() => navigate(`/generate/${project.id}`)}
+          style={styles.actionButton}
+        >
+          查看进度
+        </button>
+        <button
+          onClick={() => onView(project.id)}
+          style={styles.actionButton}
+        >
+          详情
+        </button>
+        <button
+          onClick={() => onDelete(project.id)}
+          style={styles.actionButtonDanger}
+        >
+          删除
+        </button>
+      </div>
+
+      {/* 装饰线 */}
+      <div style={{
+        ...styles.cardDecorLine,
+        backgroundColor: statusConfig.color,
+        width: isHovered ? '100%' : '0%'
+      }} />
+    </div>
+  )
+}
+
+// 项目详情模态框
 function ProjectDetailModal({ project, onClose }) {
   const navigate = useNavigate()
   const [scenes, setScenes] = useState([])
@@ -180,58 +259,44 @@ function ProjectDetailModal({ project, onClose }) {
     }
 
     loadScenes()
-  }, [project.id])
+
+    // ESC 键关闭
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [project.id, onClose])
 
   return (
     <div style={styles.modalOverlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+        {/* 模态框头部 */}
         <div style={styles.modalHeader}>
-          <h2 style={styles.modalTitle}>项目详情</h2>
+          <div>
+            <h2 style={styles.modalTitle}>Project Details</h2>
+            <p style={styles.modalSubtitle}>项目详情</p>
+          </div>
           <button onClick={onClose} style={styles.closeButton}>✕</button>
         </div>
+
+        {/* 模态框内容 */}
         <div style={styles.modalBody}>
           <div style={styles.detailRow}>
-            <strong>项目 ID:</strong>
-            <code style={styles.code}>{project.id}</code>
+            <span style={styles.detailLabel}>项目 ID</span>
+            <code style={styles.detailValue}>{project.id}</code>
           </div>
           <div style={styles.detailRow}>
-            <strong>标题:</strong>
-            <span>{project.title || '-'}</span>
+            <span style={styles.detailLabel}>标题</span>
+            <span style={styles.detailValue}>{project.title || '-'}</span>
           </div>
           <div style={styles.detailRow}>
-            <strong>状态:</strong>
-            <span style={getStatusStyle(project.status)}>{project.status}</span>
+            <span style={styles.detailLabel}>状态</span>
+            <span style={styles.detailValue}>{project.status}</span>
           </div>
           <div style={styles.detailRow}>
-            <strong>创建时间:</strong>
-            <span>{new Date(project.created_at).toLocaleString('zh-CN')}</span>
-          </div>
-          {project.article_content && (
-            <div style={styles.detailRow}>
-              <strong>文章内容:</strong>
-              <pre style={styles.pre}>{project.article_content}</pre>
-            </div>
-          )}
-
-          {/* 快捷导航按钮 */}
-          <div style={styles.quickActions}>
-            <h3 style={styles.quickActionsTitle}>快捷导航</h3>
-            <div style={styles.quickButtonsGrid}>
-              <button
-                onClick={() => navigate(`/result/${project.id}`)}
-                style={styles.quickButton}
-              >
-                <span style={styles.quickButtonIcon}>📺</span>
-                <span style={styles.quickButtonLabel}>查看结果</span>
-              </button>
-              <button
-                onClick={() => navigate(`/generate/${project.id}`)}
-                style={styles.quickButton}
-              >
-                <span style={styles.quickButtonIcon}>⚙️</span>
-                <span style={styles.quickButtonLabel}>生成进度</span>
-              </button>
-            </div>
+            <span style={styles.detailLabel}>创建时间</span>
+            <span style={styles.detailValue}>{formatLocalTime(project.created_at)}</span>
           </div>
 
           {/* 场景列表 */}
@@ -239,7 +304,7 @@ function ProjectDetailModal({ project, onClose }) {
             <div style={styles.scenesLoading}>加载场景中...</div>
           ) : scenes.length > 0 ? (
             <div style={styles.scenesSection}>
-              <h3 style={styles.scenesSectionTitle}>场景列表</h3>
+              <h3 style={styles.sectionTitle}>场景列表</h3>
               <div style={styles.scenesList}>
                 {scenes.map((scene, index) => (
                   <div key={scene.scene_id} style={styles.sceneItem}>
@@ -250,9 +315,8 @@ function ProjectDetailModal({ project, onClose }) {
                     <button
                       onClick={() => navigate(`/timeline-editor/${scene.scene_id}`)}
                       style={styles.sceneButton}
-                      title="打开时间轴编辑器"
                     >
-                      🎬 编辑时间轴
+                      编辑
                     </button>
                   </div>
                 ))}
@@ -265,281 +329,365 @@ function ProjectDetailModal({ project, onClose }) {
   )
 }
 
-function getStatusStyle(status) {
-  const baseStyle = {
-    padding: '4px 12px',
-    borderRadius: '12px',
-    fontSize: '12px',
-    fontWeight: '600'
-  }
-
-  switch (status) {
-    case 'completed':
-      return { ...baseStyle, backgroundColor: '#d1fae5', color: '#065f46' }
-    case 'running':
-      return { ...baseStyle, backgroundColor: '#fef3c7', color: '#92400e' }
-    case 'failed':
-      return { ...baseStyle, backgroundColor: '#fee2e2', color: '#991b1b' }
-    default:
-      return { ...baseStyle, backgroundColor: '#e5e7eb', color: '#374151' }
-  }
-}
-
+// 样式定义
 const styles = {
   container: {
-    padding: '20px'
+    padding: '0'
   },
-  header: {
+
+  // 工具栏
+  toolbar: {
     display: 'flex',
-    gap: '12px',
-    marginBottom: '20px'
+    gap: '16px',
+    marginBottom: '24px',
+    alignItems: 'center'
+  },
+  searchWrapper: {
+    flex: 1,
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center'
   },
   searchInput: {
     flex: 1,
-    padding: '10px 16px',
-    border: '1px solid #f0eee6', // Border Cream
-    borderRadius: '12px', // Generous
+    padding: '14px 40px 14px 16px',
+    backgroundColor: '#FFFFFF',
+    border: '1px solid #E8E6E0',
     fontSize: '14px',
-    backgroundColor: '#ffffff',
-    color: '#141413', // Near Black
+    color: '#2C2416',
     outline: 'none',
-    transition: 'all 0.2s'
+    transition: 'all 0.3s',
+    fontFamily: 'inherit'
+  },
+  clearButton: {
+    position: 'absolute',
+    right: '12px',
+    width: '24px',
+    height: '24px',
+    border: 'none',
+    borderRadius: '50%',
+    background: '#E8E6E0',
+    color: '#8B7355',
+    cursor: 'pointer',
+    fontSize: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.3s',
+    padding: 0
   },
   refreshButton: {
-    padding: '10px 20px',
-    backgroundColor: '#c96442', // Terracotta Brand
-    color: '#faf9f5', // Ivory
+    padding: '14px 28px',
+    backgroundColor: '#2C2416',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '8px', // Comfortable
     cursor: 'pointer',
-    fontSize: '14px',
+    fontSize: '13px',
     fontWeight: '500',
-    boxShadow: '0px 0px 0px 1px #c96442', // Ring shadow
-    transition: 'all 0.2s'
+    transition: 'all 0.3s',
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase',
+    whiteSpace: 'nowrap'
   },
+
+  // 结果统计
+  resultStats: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '8px',
+    marginBottom: '24px',
+    fontSize: '13px',
+    color: '#8B7355',
+    fontWeight: '500'
+  },
+  resultCount: {
+    fontSize: '32px',
+    color: '#D4A574',
+    fontWeight: '300',
+    fontFamily: 'Georgia, "Times New Roman", serif'
+  },
+  resultSeparator: {
+    color: '#E8E6E0'
+  },
+  resultTotal: {
+    fontSize: '18px',
+    color: '#8B7355'
+  },
+  resultLabel: {
+    marginLeft: '4px',
+    letterSpacing: '0.1em'
+  },
+
+  // Loading
   loading: {
     textAlign: 'center',
-    padding: '40px',
-    color: '#5e5d59', // Olive Gray
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif'
+    padding: '80px 20px',
+    color: '#8B7355'
   },
+  loadingSpinner: {
+    width: '40px',
+    height: '40px',
+    border: '3px solid #E8E6E0',
+    borderTop: '3px solid #D4A574',
+    borderRadius: '50%',
+    margin: '0 auto 20px',
+    animation: 'spin 1s linear infinite'
+  },
+  loadingText: {
+    fontSize: '14px',
+    letterSpacing: '0.05em'
+  },
+
+  // Empty 状态
   empty: {
     textAlign: 'center',
-    padding: '60px 20px',
-    color: '#5e5d59' // Olive Gray
+    padding: '100px 20px',
+    backgroundColor: '#FFFFFF',
+    border: '1px solid #E8E6E0'
   },
-  emptyHint: {
-    fontSize: '14px',
-    marginTop: '8px',
-    color: '#87867f' // Stone Gray
+  emptyTitle: {
+    fontSize: '18px',
+    fontWeight: '300',
+    color: '#2C2416',
+    letterSpacing: '0.05em',
+    marginBottom: '8px',
+    fontFamily: 'Georgia, "Times New Roman", serif'
   },
-  tableContainer: {
-    backgroundColor: '#faf9f5', // Ivory
-    borderRadius: '12px', // Generous
-    border: '1px solid #f0eee6', // Border Cream
-    boxShadow: 'rgba(0, 0, 0, 0.05) 0px 4px 24px', // Whisper shadow
+  emptySubtitle: {
+    fontSize: '13px',
+    color: '#8B7355',
+    letterSpacing: '0.05em'
+  },
+
+  // 项目网格
+  projectsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gap: '24px'
+  },
+
+  // 项目卡片
+  projectCard: {
+    backgroundColor: '#FFFFFF',
+    padding: '28px',
+    border: '1px solid #E8E6E0',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+    cursor: 'pointer',
+    position: 'relative',
     overflow: 'hidden'
   },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse'
+  cardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px'
   },
-  th: {
-    padding: '16px',
-    textAlign: 'left',
-    backgroundColor: '#e8e6dc', // Warm Sand
-    borderBottom: '1px solid #f0eee6', // Border Cream
-    fontSize: '14px',
+  cardId: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  },
+  cardIdLabel: {
+    fontSize: '11px',
+    color: '#8B7355',
+    letterSpacing: '0.1em',
     fontWeight: '500',
-    color: '#141413', // Near Black
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif'
+    textTransform: 'uppercase'
   },
-  tr: {
-    borderBottom: '1px solid #f0eee6' // Border Cream
-  },
-  td: {
-    padding: '16px',
-    fontSize: '14px',
-    color: '#141413', // Near Black
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif'
-  },
-  code: {
-    backgroundColor: '#e8e6dc', // Warm Sand
-    padding: '2px 6px',
-    borderRadius: '4px',
+  cardIdValue: {
     fontSize: '12px',
-    fontFamily: 'monospace',
-    color: '#4d4c48' // Charcoal Warm
+    color: '#2C2416',
+    backgroundColor: '#FAF9F6',
+    padding: '4px 10px',
+    fontFamily: 'inherit',
+    letterSpacing: '0.05em'
   },
-  actionButtons: {
+  statusBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '6px 12px',
+    fontSize: '11px',
+    fontWeight: '500',
+    letterSpacing: '0.05em',
+    border: '1px solid',
+    textTransform: 'uppercase'
+  },
+  cardTitle: {
+    margin: '0 0 16px 0',
+    fontSize: '18px',
+    fontWeight: '300',
+    color: '#2C2416',
+    letterSpacing: '-0.01em',
+    lineHeight: 1.4,
+    fontFamily: 'Georgia, "Times New Roman", serif'
+  },
+  cardMeta: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    marginBottom: '20px',
+    fontSize: '12px',
+    color: '#8B7355'
+  },
+  metaLabel: {
+    fontWeight: '500',
+    fontSize: '11px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em'
+  },
+  metaValue: {
+    color: '#2C2416',
+    fontSize: '13px'
+  },
+  cardActions: {
     display: 'flex',
     gap: '8px',
     flexWrap: 'wrap'
   },
-  primaryButton: {
-    padding: '6px 12px',
-    backgroundColor: '#c96442', // Terracotta Brand
-    color: '#faf9f5', // Ivory
+  actionButtonPrimary: {
+    padding: '10px 16px',
+    backgroundColor: '#2C2416',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '6px',
     cursor: 'pointer',
     fontSize: '12px',
     fontWeight: '500',
-    transition: 'all 0.2s',
-    boxShadow: '0px 0px 0px 1px #c96442'
-  },
-  secondaryButton: {
-    padding: '6px 12px',
-    backgroundColor: '#e8e6dc', // Warm Sand
-    color: '#4d4c48', // Charcoal Warm
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '12px',
-    fontWeight: '500',
-    transition: 'all 0.2s',
-    boxShadow: '0px 0px 0px 1px #d1cfc5'
+    transition: 'all 0.3s',
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase'
   },
   actionButton: {
-    padding: '6px 12px',
-    backgroundColor: '#e8e6dc', // Warm Sand
-    color: '#4d4c48', // Charcoal Warm
-    border: 'none',
-    borderRadius: '6px',
+    padding: '10px 16px',
+    backgroundColor: 'transparent',
+    color: '#2C2416',
+    border: '1px solid #E8E6E0',
     cursor: 'pointer',
     fontSize: '12px',
     fontWeight: '500',
-    transition: 'all 0.2s',
-    boxShadow: '0px 0px 0px 1px #d1cfc5' // Ring shadow
+    transition: 'all 0.3s',
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase'
   },
-  deleteButton: {
-    backgroundColor: '#b53333', // Error Crimson
-    color: '#faf9f5', // Ivory
-    boxShadow: '0px 0px 0px 1px #b53333'
+  actionButtonDanger: {
+    padding: '10px 16px',
+    backgroundColor: 'transparent',
+    color: '#C89564',
+    border: '1px solid #C89564',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '500',
+    transition: 'all 0.3s',
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase'
   },
+  cardDecorLine: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    height: '3px',
+    transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+  },
+
+  // 模态框
   modalOverlay: {
     position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(20, 20, 19, 0.5)', // Near Black with transparency
+    backgroundColor: 'rgba(44, 36, 22, 0.8)',
+    backdropFilter: 'blur(10px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1000
+    zIndex: 1000,
+    padding: '20px'
   },
   modal: {
-    backgroundColor: '#faf9f5', // Ivory
-    borderRadius: '16px', // Very rounded
+    backgroundColor: '#FFFFFF',
     maxWidth: '700px',
-    width: '90%',
-    maxHeight: '80vh',
+    width: '100%',
+    maxHeight: '90vh',
     overflow: 'auto',
-    boxShadow: 'rgba(0, 0, 0, 0.15) 0px 20px 60px',
-    border: '1px solid #f0eee6' // Border Cream
+    border: '1px solid #E8E6E0'
   },
   modalHeader: {
-    padding: '20px',
-    borderBottom: '1px solid #f0eee6', // Border Cream
+    padding: '32px',
+    borderBottom: '1px solid #E8E6E0',
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'flex-start'
   },
   modalTitle: {
     margin: 0,
-    fontSize: '20.8px', // Feature Title
-    fontWeight: '500',
-    fontFamily: 'Georgia, serif', // Anthropic Serif fallback
-    color: '#141413' // Near Black
+    fontSize: '24px',
+    fontWeight: '300',
+    color: '#2C2416',
+    letterSpacing: '-0.01em',
+    fontFamily: 'Georgia, "Times New Roman", serif'
+  },
+  modalSubtitle: {
+    margin: '4px 0 0 0',
+    fontSize: '12px',
+    color: '#8B7355',
+    letterSpacing: '0.05em'
   },
   closeButton: {
+    width: '36px',
+    height: '36px',
     backgroundColor: 'transparent',
-    border: 'none',
-    fontSize: '24px',
+    border: '1px solid #E8E6E0',
+    color: '#8B7355',
     cursor: 'pointer',
-    color: '#87867f' // Stone Gray
+    fontSize: '18px',
+    transition: 'all 0.3s',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   modalBody: {
-    padding: '20px'
+    padding: '32px'
   },
   detailRow: {
-    marginBottom: '16px',
+    marginBottom: '20px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '4px',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif'
+    gap: '6px'
   },
-  pre: {
-    backgroundColor: '#e8e6dc', // Warm Sand
-    padding: '12px',
-    borderRadius: '8px', // Comfortable
-    fontSize: '12px',
-    overflow: 'auto',
-    maxHeight: '200px',
-    fontFamily: 'monospace',
-    color: '#4d4c48' // Charcoal Warm
-  },
-  quickActions: {
-    marginTop: '24px',
-    padding: '16px',
-    backgroundColor: '#e8e6dc', // Warm Sand
-    borderRadius: '8px',
-    border: '1px solid #d1cfc5'
-  },
-  quickActionsTitle: {
-    margin: '0 0 12px 0',
-    fontSize: '16px',
+  detailLabel: {
+    fontSize: '11px',
+    color: '#8B7355',
     fontWeight: '500',
-    fontFamily: 'Georgia, serif',
-    color: '#141413'
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase'
   },
-  quickButtonsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '12px'
-  },
-  quickButton: {
-    padding: '12px',
-    backgroundColor: '#faf9f5', // Ivory
-    border: '1px solid #f0eee6',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '8px',
-    transition: 'all 0.2s',
-    boxShadow: '0px 0px 0px 1px #d1cfc5'
-  },
-  quickButtonIcon: {
-    fontSize: '24px'
-  },
-  quickButtonLabel: {
+  detailValue: {
     fontSize: '14px',
-    fontWeight: '500',
-    color: '#141413'
+    color: '#2C2416',
+    letterSpacing: '0.05em'
   },
   scenesSection: {
-    marginTop: '24px'
+    marginTop: '32px',
+    paddingTop: '32px',
+    borderTop: '1px solid #E8E6E0'
   },
-  scenesSectionTitle: {
-    margin: '0 0 12px 0',
+  sectionTitle: {
+    margin: '0 0 20px 0',
     fontSize: '16px',
-    fontWeight: '500',
-    fontFamily: 'Georgia, serif',
-    color: '#141413'
+    fontWeight: '300',
+    color: '#2C2416',
+    letterSpacing: '-0.01em',
+    fontFamily: 'Georgia, "Times New Roman", serif'
   },
   scenesList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px'
+    gap: '12px'
   },
   sceneItem: {
-    padding: '12px',
-    backgroundColor: '#e8e6dc', // Warm Sand
-    borderRadius: '8px',
-    border: '1px solid #d1cfc5',
+    padding: '16px',
+    backgroundColor: '#FAF9F6',
+    border: '1px solid #E8E6E0',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center'
@@ -550,30 +698,34 @@ const styles = {
     gap: '4px'
   },
   sceneNumber: {
-    fontSize: '14px',
+    fontSize: '13px',
     fontWeight: '500',
-    color: '#141413'
+    color: '#2C2416',
+    letterSpacing: '0.05em'
   },
   sceneType: {
-    fontSize: '12px',
-    color: '#5e5d59'
+    fontSize: '11px',
+    color: '#8B7355',
+    letterSpacing: '0.05em'
   },
   sceneButton: {
-    padding: '8px 16px',
-    backgroundColor: '#c96442', // Terracotta Brand
-    color: '#faf9f5',
+    padding: '10px 20px',
+    backgroundColor: '#2C2416',
+    color: '#FFFFFF',
     border: 'none',
-    borderRadius: '6px',
     cursor: 'pointer',
     fontSize: '12px',
     fontWeight: '500',
-    transition: 'all 0.2s',
-    boxShadow: '0px 0px 0px 1px #c96442'
+    transition: 'all 0.3s',
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase'
   },
   scenesLoading: {
     textAlign: 'center',
-    padding: '20px',
-    color: '#5e5d59'
+    padding: '40px',
+    color: '#8B7355',
+    fontSize: '13px',
+    letterSpacing: '0.05em'
   }
 }
 

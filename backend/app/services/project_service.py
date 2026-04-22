@@ -112,3 +112,14 @@ class ProjectService:
             self.cache.set(cache_key, project_ids, ttl=self.cache.SHORT_TTL)
 
         return projects
+
+    def get_stats(self) -> dict:
+        """Get project statistics"""
+        from sqlalchemy import func
+
+        total_projects = self.repo.db.query(func.count(Project.id)).scalar()
+
+        stats = {
+            "total_projects": total_projects or 0
+        }
+        return stats

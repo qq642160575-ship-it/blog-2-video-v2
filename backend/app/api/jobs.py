@@ -45,7 +45,6 @@ def get_all_jobs(
                 "stage": job.stage,
                 "progress": float(job.progress) if job.progress else 0.0,
                 "created_at": job.created_at.isoformat(),
-                "updated_at": job.updated_at.isoformat() if job.updated_at else None,
                 "error_code": job.error_code,
                 "error_message": job.error_message
             }

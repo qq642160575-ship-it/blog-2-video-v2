@@ -242,8 +242,8 @@ function JobLogsList({ logs, onSelect }) {
               </td>
               <td style={styles.td}>
                 <div style={styles.messagePreview}>
-                  {log.message.substring(0, 100)}
-                  {log.message.length > 100 && '...'}
+                  {log.message ? log.message.substring(0, 100) : '-'}
+                  {log.message && log.message.length > 100 && '...'}
                 </div>
               </td>
               <td style={styles.td}>

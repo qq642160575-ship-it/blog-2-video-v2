@@ -32,7 +32,7 @@ def get_all_projects(
                 "status": project.status,
                 "created_at": project.created_at.isoformat(),
                 "updated_at": project.updated_at.isoformat() if project.updated_at else None,
-                "article_content": project.article_content[:100] + "..." if project.article_content and len(project.article_content) > 100 else project.article_content
+                "article_content": project.content[:100] + "..." if project.content and len(project.content) > 100 else project.content
             }
             for project in projects
         ]

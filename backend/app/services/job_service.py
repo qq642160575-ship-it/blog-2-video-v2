@@ -202,6 +202,28 @@ class JobService:
         logger.debug(f"Job {job_id} results updated successfully")
         return job
 
+    def get_all_jobs(self, skip: int = 0, limit: int = 100) -> list[GenerationJob]:
+        """Get all jobs with pagination"""
+        return self.db.query(GenerationJob).order_by(GenerationJob.created_at.desc()).offset(skip).limit(limit).all()
+
+    def get_stats(self) -> dict:
+        """Get job statistics"""
+        from sqlalchemy import func
+
+        total_jobs = self.db.query(func.count(GenerationJob.id)).scalar()
+        running_jobs = self.db.query(func.count(GenerationJob.id)).filter(GenerationJob.status == "running").scalar()
+        completed_jobs = self.db.query(func.count(GenerationJob.id)).filter(GenerationJob.status == "completed").scalar()
+        failed_jobs = self.db.query(func.count(GenerationJob.id)).filter(GenerationJob.status == "failed").scalar()
+
+        stats = {
+            "total_jobs": total_jobs or 0,
+            "running_jobs": running_jobs or 0,
+            "completed_jobs": completed_jobs or 0,
+            "failed_jobs": failed_jobs or 0
+        }
+        logger.debug(f"Job stats: {stats}")
+        return stats
+
     def get_concurrency_stats(self) -> dict:
         """Get concurrency statistics"""
         stats = {
