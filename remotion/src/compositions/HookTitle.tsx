@@ -13,11 +13,23 @@ export interface HookTitleProps {
   subtitle: string;
   audioPath?: string;
   subtitles?: Array<{text: string; start_ms: number; end_ms: number}>;
+  timeline?: {
+    keyframes?: Array<{
+      time: number;
+      element: string;
+      action: string;
+      duration: number;
+    }>;
+  };
 }
 
-export const HookTitle: React.FC<HookTitleProps> = ({title, subtitle, audioPath, subtitles}) => {
+export const HookTitle: React.FC<HookTitleProps> = ({title, subtitle, audioPath, subtitles, timeline}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
+
+  // Calculate current time in seconds
+  const currentTimeSec = frame / fps;
+  const currentTimeMs = currentTimeSec * 1000;
 
   // Fade in animation for title (0-0.5s)
   const titleOpacity = interpolate(frame, [0, fps * 0.5], [0, 1], {
@@ -29,8 +41,42 @@ export const HookTitle: React.FC<HookTitleProps> = ({title, subtitle, audioPath,
     extrapolateRight: 'clamp',
   });
 
-  // Calculate current time in milliseconds
-  const currentTimeMs = (frame / fps) * 1000;
+  // Find active keyframes for emphasis effects
+  const getKeyframeEffect = (text: string) => {
+    if (!timeline?.keyframes) return { scale: 1, color: '#ffffff' };
+
+    const activeKeyframe = timeline.keyframes.find((kf) => {
+      const kfStart = kf.time;
+      const kfEnd = kf.time + kf.duration;
+      return (
+        currentTimeSec >= kfStart &&
+        currentTimeSec < kfEnd &&
+        text.includes(kf.element)
+      );
+    });
+
+    if (activeKeyframe) {
+      // Calculate progress within keyframe (0 to 1)
+      const progress = (currentTimeSec - activeKeyframe.time) / activeKeyframe.duration;
+
+      // Pop effect: scale up then down
+      const scale = interpolate(progress, [0, 0.3, 1], [1, 1.2, 1], {
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp',
+      });
+
+      return {
+        scale,
+        color: '#ffd700', // Gold color for emphasis
+      };
+    }
+
+    return { scale: 1, color: '#ffffff' };
+  };
+
+  // Apply effects to title and subtitle
+  const titleEffect = getKeyframeEffect(title);
+  const subtitleEffect = getKeyframeEffect(subtitle);
 
   // Find current subtitle
   const currentSubtitle = subtitles?.find(
@@ -70,10 +116,12 @@ export const HookTitle: React.FC<HookTitleProps> = ({title, subtitle, audioPath,
           style={{
             fontSize: '72px',
             fontWeight: 'bold',
-            color: '#ffffff',
+            color: titleEffect.color,
             margin: '0 0 30px 0',
             opacity: titleOpacity,
             lineHeight: 1.2,
+            transform: `scale(${titleEffect.scale})`,
+            transition: 'transform 0.1s ease-out',
           }}
         >
           {title}
@@ -81,10 +129,12 @@ export const HookTitle: React.FC<HookTitleProps> = ({title, subtitle, audioPath,
         <p
           style={{
             fontSize: '36px',
-            color: '#a8dadc',
+            color: subtitleEffect.color === '#ffffff' ? '#a8dadc' : subtitleEffect.color,
             margin: 0,
             opacity: subtitleOpacity,
             lineHeight: 1.4,
+            transform: `scale(${subtitleEffect.scale})`,
+            transition: 'transform 0.1s ease-out',
           }}
         >
           {subtitle}

@@ -85,7 +85,10 @@ def get_scene(
             "duration_sec": scene.duration_sec,
             "pace": scene.pace,
             "transition": scene.transition,
-            "visual_params": scene.visual_params
+            "visual_params": scene.visual_params,
+            "emphasis_words": scene.emphasis_words,
+            "tts_metadata": scene.tts_metadata,
+            "timeline_data": scene.timeline_data
         }
     except HTTPException:
         raise
@@ -195,7 +198,6 @@ async def preview_scene(
             "screen_text": scene.screen_text,
             "duration_sec": scene.duration_sec,
             "timeline_data": scene.timeline_data,
-            "audio_url": scene.audio_url,
             "visual_params": scene.visual_params
         }
 

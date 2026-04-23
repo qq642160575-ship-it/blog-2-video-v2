@@ -6,7 +6,7 @@ import json
 import subprocess
 import time
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from app.core.config import get_settings
 from app.core.logging_config import get_logger
 
@@ -18,10 +18,20 @@ class PreviewService:
     """Service for generating preview videos"""
 
     def __init__(self):
-        self.remotion_dir = Path(__file__).parent.parent.parent.parent / "remotion"
-        self.storage_dir = Path(__file__).parent.parent.parent.parent / "backend" / "storage"
+        # Get project root directory
+        backend_dir = Path(__file__).parent.parent.parent
+        project_root = backend_dir.parent
+
+        self.remotion_dir = project_root / "remotion"
+        self.storage_dir = backend_dir / "storage"
         self.preview_dir = self.storage_dir / "previews"
         self.preview_dir.mkdir(parents=True, exist_ok=True)
+
+        # Verify remotion directory exists
+        if not self.remotion_dir.exists():
+            logger.error(f"Remotion directory not found: {self.remotion_dir}")
+        else:
+            logger.info(f"Remotion directory: {self.remotion_dir}")
 
     async def generate_preview(
         self,
@@ -77,6 +87,15 @@ class PreviewService:
             logger.error(f"Error generating preview for scene {scene_id}: {e}")
             return None
 
+    def _get_composition_id(self, template_type: str) -> str:
+        """Map template_type to Remotion Composition ID"""
+        mapping = {
+            "hook_title": "HookTitle",
+            "bullet_explain": "BulletExplain",
+            "compare_process": "CompareProcess"
+        }
+        return mapping.get(template_type, "HookTitle")
+
     def _create_preview_manifest(
         self,
         scene_id: str,
@@ -96,26 +115,127 @@ class PreviewService:
         end_frame = int(end_time * fps)
         duration_frames = end_frame - start_frame
 
+        template_type = scene_data.get("template_type", "hook_title")
+        composition_id = self._get_composition_id(template_type)
+
+        # Prepare props based on template type
+        visual_params = scene_data.get("visual_params", {})
+        screen_text = scene_data.get("screen_text", [])
+
+        if template_type == "hook_title":
+            props = {
+                "title": screen_text[0] if screen_text else scene_data.get("voiceover", ""),
+                "subtitle": screen_text[1] if len(screen_text) > 1 else "",
+                "timeline": scene_data.get("timeline_data"),
+                "subtitles": self._generate_subtitles_from_voiceover(
+                    scene_data.get("voiceover", ""),
+                    scene_data.get("tts_metadata"),
+                    duration_sec
+                )
+            }
+        elif template_type == "bullet_explain":
+            props = {
+                "title": screen_text[0] if screen_text else "标题",
+                "bullets": screen_text[1:] if len(screen_text) > 1 else [],
+                "accentColor": visual_params.get("accent_color", "#f97316")
+            }
+        elif template_type == "compare_process":
+            props = {
+                "title": screen_text[0] if screen_text else "对比",
+                "leftTitle": visual_params.get("left_title", "方案A"),
+                "rightTitle": visual_params.get("right_title", "方案B"),
+                "leftPoints": visual_params.get("left_points", []),
+                "rightPoints": visual_params.get("right_points", []),
+                "footerText": visual_params.get("footer_text", "")
+            }
+        else:
+            props = {}
+
         manifest = {
-            "project_id": f"preview_{scene_id}",
-            "total_duration_ms": int((end_time - start_time) * 1000),
+            "compositionId": composition_id,
+            "durationInFrames": duration_frames,
             "fps": fps,
-            "scenes": [
-                {
-                    "scene_id": scene_id,
-                    "template_type": scene_data.get("template_type", "hook_title"),
-                    "start_ms": 0,
-                    "end_ms": int((end_time - start_time) * 1000),
-                    "voiceover": scene_data.get("voiceover", ""),
-                    "screen_text": scene_data.get("screen_text", []),
-                    "timeline_data": scene_data.get("timeline_data"),
-                    "audio_url": scene_data.get("audio_url"),
-                    "visual_params": scene_data.get("visual_params", {}),
-                }
-            ]
+            "props": props
         }
 
         return manifest
+
+    def _generate_subtitles_from_voiceover(
+        self,
+        voiceover: str,
+        tts_metadata: Optional[Dict[str, Any]],
+        duration_sec: float
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate subtitle data from voiceover and TTS metadata
+
+        Args:
+            voiceover: Voiceover text
+            tts_metadata: TTS metadata with word timestamps
+            duration_sec: Scene duration in seconds
+
+        Returns:
+            List of subtitle segments with timing
+        """
+        if not voiceover:
+            return []
+
+        # If we have TTS metadata with word timestamps, use them
+        if tts_metadata and "word_timestamps" in tts_metadata:
+            word_timestamps = tts_metadata["word_timestamps"]
+            if word_timestamps:
+                # Group words into subtitle segments (every 5-8 words or by punctuation)
+                subtitles = []
+                current_segment = []
+                segment_start = 0
+
+                for i, word_info in enumerate(word_timestamps):
+                    word = word_info.get("word", "")
+                    start_time = word_info.get("start_time", 0)
+                    end_time = word_info.get("end_time", 0)
+
+                    if not current_segment:
+                        segment_start = start_time
+
+                    current_segment.append(word)
+
+                    # Create segment on punctuation or every 6 words
+                    is_punctuation = word.endswith(('。', '？', '！', '，', '.', '?', '!', ','))
+                    should_break = is_punctuation or len(current_segment) >= 6
+                    is_last = i == len(word_timestamps) - 1
+
+                    if should_break or is_last:
+                        subtitles.append({
+                            "text": "".join(current_segment),
+                            "start_ms": int(segment_start * 1000),
+                            "end_ms": int(end_time * 1000)
+                        })
+                        current_segment = []
+
+                return subtitles
+
+        # Fallback: split voiceover into segments by punctuation
+        import re
+        segments = re.split(r'([。？！，.?!,])', voiceover)
+
+        subtitles = []
+        time_per_char = duration_sec / len(voiceover) if voiceover else 0
+        current_time = 0
+
+        for i in range(0, len(segments) - 1, 2):
+            text = segments[i] + (segments[i + 1] if i + 1 < len(segments) else "")
+            text = text.strip()
+
+            if text:
+                segment_duration = len(text) * time_per_char
+                subtitles.append({
+                    "text": text,
+                    "start_ms": int(current_time * 1000),
+                    "end_ms": int((current_time + segment_duration) * 1000)
+                })
+                current_time += segment_duration
+
+        return subtitles
 
     async def _render_preview(
         self,
@@ -126,14 +246,19 @@ class PreviewService:
         """Render preview video using Remotion"""
 
         try:
+            # Load manifest to get composition info
+            with open(manifest_path, 'r', encoding='utf-8') as f:
+                manifest = json.load(f)
+
+            composition_id = manifest.get("compositionId", "HookTitle")
+            props_json = json.dumps(manifest.get("props", {}))
+
             # Set quality parameters
             if quality == "low":
-                width = 640
-                height = 360
+                scale = 0.5  # 540x960 for vertical video
                 crf = 28
             else:  # medium
-                width = 854
-                height = 480
+                scale = 0.75  # 810x1440
                 crf = 23
 
             # Remotion render command
@@ -141,15 +266,13 @@ class PreviewService:
                 "npx",
                 "remotion",
                 "render",
-                "src/index.ts",
-                "VideoComposition",
+                "src/index.tsx",
+                composition_id,
                 str(output_path),
                 "--props",
-                str(manifest_path),
-                "--width",
-                str(width),
-                "--height",
-                str(height),
+                props_json,
+                "--scale",
+                str(scale),
                 "--codec",
                 "h264",
                 "--crf",
@@ -158,6 +281,7 @@ class PreviewService:
             ]
 
             logger.info(f"Running Remotion render: {' '.join(cmd)}")
+            logger.info(f"Composition: {composition_id}, Props: {props_json}")
 
             # Run render process
             process = subprocess.Popen(
@@ -170,22 +294,27 @@ class PreviewService:
 
             # Wait for completion (with timeout)
             try:
-                stdout, stderr = process.communicate(timeout=60)  # 60 second timeout
+                stdout, stderr = process.communicate(timeout=120)  # 120 second timeout
 
                 if process.returncode == 0:
                     logger.info("Preview render completed successfully")
+                    logger.debug(f"Render output: {stdout}")
                     return True
                 else:
-                    logger.error(f"Preview render failed: {stderr}")
+                    logger.error(f"Preview render failed with code {process.returncode}")
+                    logger.error(f"Stderr: {stderr}")
+                    logger.error(f"Stdout: {stdout}")
                     return False
 
             except subprocess.TimeoutExpired:
                 process.kill()
-                logger.error("Preview render timeout")
+                logger.error("Preview render timeout (120s)")
                 return False
 
         except Exception as e:
             logger.error(f"Error rendering preview: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return False
 
 
